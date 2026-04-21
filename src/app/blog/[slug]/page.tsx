@@ -4,28 +4,13 @@ import Image from "next/image";
 import Navbar from "@/components/layout/guest/Navbar";
 import Footer from "@/components/layout/guest/Footer";
 import CTA from "@/components/home/CTA";
-// const Page = () => {
-//   return (
-//     <>
-//       <Navbar />
-//       <main className="pt-32 px-6 md:px-12 max-w-screen-2xl h-screen mx-auto bg-[#0b1326] text-white">
-//       </main>
-//       <Footer />
-//     </>
-//   )
-// }
-
-// export default Page
 
 export default function BlogDetailPage() {
   return (
     <div className="bg-[#0b1326] text-[#dae2fd] min-h-screen font-body">
-      {/* NAVBAR */}
       <Navbar />
 
-      {/* MAIN */}
-      <main className="pt-32 px-6 max-w-7xl mx-auto relative">
-        {/* TOC */}
+      <main className="pt-32 pb-0 px-6 max-w-7xl mx-auto relative">
         <aside className="absolute right-10 top-48 w-64 hidden xl:flex flex-col gap-4">
           <h4 className="text-xs uppercase tracking-widest text-slate-300">
             Table of Contents
@@ -47,7 +32,6 @@ export default function BlogDetailPage() {
           ))}
         </aside>
 
-        {/* HEADER */}
         <motion.header
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
@@ -65,7 +49,6 @@ export default function BlogDetailPage() {
             How modern event-driven architectures are reshaping scalability.
           </p>
 
-          {/* AUTHOR */}
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-full overflow-hidden bg-slate-700">
               <Image
@@ -85,7 +68,6 @@ export default function BlogDetailPage() {
           </div>
         </motion.header>
 
-        {/* FEATURE IMAGE */}
         <div className="mb-16 rounded-lg overflow-hidden">
           <Image
             src="https://lh3.googleusercontent.com/aida-public/AB6AXuD9D4oYAOOOu99hv3i-Y3Cu-hteqJmNFW8od_6zuARTzFdwVIWMnOyjclmVwCvuz9NLPPQskS41eugbymZ4oZH0c_BKNhYqzeQwGWObdJIKEIw6zwAFwbl1oLYnJfWfDn3AiWqB903yFVvTeFGl7C0b2N8ztOmlz8ArTrzqrCTQfeX0lG1uCIhH734jiJN15uPdv6Nb-YWISX2MtfV8Jsb7VXm41cNnP-wJj7RWk3no_cUgGCqTkr8WhXTKAUl4MjbQQlaR7MNrUs2h"
@@ -96,7 +78,6 @@ export default function BlogDetailPage() {
           />
         </div>
 
-        {/* CONTENT */}
         <div className="max-w-175 mx-auto space-y-10">
           <p id="intro" className="text-lg leading-8">
             As distributed systems evolve, asynchronous patterns become
@@ -116,7 +97,6 @@ export default function BlogDetailPage() {
             services...
           </p>
 
-          {/* CODE BLOCK */}
           <div className="bg-[#060e20] p-6 rounded-lg font-mono text-sm overflow-x-auto">
             <pre className="text-slate-300">
               {`async function handleSystemUpdate(payload) {
@@ -140,7 +120,6 @@ export default function BlogDetailPage() {
           </p>
         </div>
 
-        {/* AUTHOR CARD */}
         <div className="my-20 p-8 bg-[#131b2e] rounded-lg flex flex-col md:flex-row items-center gap-8">
           <Image
             src="https://lh3.googleusercontent.com/aida-public/AB6AXuB_y3y3VufQbtV_hoXsKiBaT2KjUqopCqVHVJyseUcRYbAywFf8W-lv6d0QciOJMNYXdXf3N2LR0tIq5Udwou4aX0eI3UbpXxHwDS0axncyFNX7-EHca3zXIRPbbgUZ8SiOBJ9WRSA-Na7nZpVwb9VG77oomlPwgb03suPvHpeG10uru2cCedw1XMGRILRBlrAzUF6gZJtyDKeljxhQ5rvR6KFJCMyQiMbGUGPWaERW7WARyRqucc4fnMTu0nVYdf8HhS0A0qKH1Own"
@@ -160,7 +139,7 @@ export default function BlogDetailPage() {
             </div>
           </div>
         </div>
-        {/* CTA */}
+
         <CTA />
       </main>
 

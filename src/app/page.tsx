@@ -10,7 +10,7 @@ export default function Home() {
   return (
     <div className="bg-[#0b1326] text-white min-h-screen">
       <Navbar />
-      <main className="pt-20">
+      <main className="pt-18">
         <Hero />
         <Featured />
         <WhyInkly />

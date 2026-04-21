@@ -35,10 +35,7 @@ const Page = () => {
           animate="show"
           className="mb-20 text-center md:text-left"
         >
-          <motion.h1
-            variants={fadeUp}
-            className="text-6xl font-extrabold mb-4"
-          >
+          <motion.h1 variants={fadeUp} className="text-6xl font-extrabold mb-4">
             Latest Blogs
           </motion.h1>
 
@@ -46,7 +43,8 @@ const Page = () => {
             variants={fadeUp}
             className="text-gray-400 text-xl max-w-2xl"
           >
-            Discover articles from writers and developers worldwide. Deep dives into code, design, and digital architecture.
+            Discover articles from writers and developers worldwide. Deep dives
+            into code, design, and digital architecture.
           </motion.p>
         </motion.header>
 
@@ -88,7 +86,10 @@ const Page = () => {
                       scalable systems.
                     </p>
 
-                    <Link href={`/blog/${i}`} className="mt-auto w-[150] text-black text-center bg-linear-to-r from-[#adc6ff] to-[#4d8eff] px-6 py-4 rounded-full text-xs font-semibold uppercase hover:scale-105 transition">
+                    <Link
+                      href={`/blog/${i}`}
+                      className="mt-auto w-[150] text-black text-center bg-linear-to-r from-[#adc6ff] to-[#4d8eff] px-6 py-4 rounded-full text-xs font-semibold uppercase hover:scale-105 transition"
+                    >
                       View Article
                     </Link>
                   </div>
