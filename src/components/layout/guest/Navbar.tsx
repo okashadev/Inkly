@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { FaSearch } from "react-icons/fa";
 
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
+  const [openDropdown, setOpenDropdown] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -16,6 +17,15 @@ export default function Navbar() {
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
+
+  const categories = [
+    "Technology",
+    "Design",
+    "Programming",
+    "AI",
+    "Startups",
+    "Productivity",
+  ];
 
   return (
     <div
@@ -48,26 +58,65 @@ export default function Navbar() {
         </div>
 
         {/* Links */}
-        <div className="hidden md:flex gap-8">
-          {["Home", "Blog", "Categories", "Authors"].map((item) => (
-            <motion.div
-              key={item}
-              whileHover={{ opacity: 1 }}
-              initial={{ opacity: 0.6 }}
-              className="cursor-pointer text-sm font-medium text-white"
-            >
-              <Link
-                href={item === "Home" ? "/" : `/${item.toLowerCase()}`}
-              >
-                {item}
-              </Link>
-            </motion.div>
-          ))}
+        <div className="hidden md:flex gap-8 items-center">
+
+          {/* Home */}
+          <Link href="/" className="text-sm text-white/70 hover:text-white">
+            Home
+          </Link>
+
+          {/* Blog */}
+          <Link href="/blog" className="text-sm text-white/70 hover:text-white">
+            Blog
+          </Link>
+
+          {/* ✅ Categories Dropdown */}
+          <div
+            className="relative"
+            onMouseEnter={() => setOpenDropdown(true)}
+            onMouseLeave={() => setOpenDropdown(false)}
+          >
+            <span className="text-sm text-white/70 hover:text-white cursor-pointer">
+              Categories
+            </span>
+
+            <AnimatePresence>
+              {openDropdown && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 16, scale: 1 }}
+                  exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                  transition={{ duration: 0.2 }}
+                  className="absolute left-1/2 -translate-x-1/2 mt-4 w-64 p-4 rounded-2xl bg-[#131B2E] backdrop-blur-xl border border-white/20 shadow-2xl"
+                >
+                  <div className="grid grid-cols-2 gap-3">
+                    {categories.map((cat) => (
+                      <Link
+                        key={cat}
+                        href={`/category/${cat.toLowerCase()}`}
+                        className="text-sm text-white/80 hover:text-white hover:bg-white/10 px-3 py-2 rounded-lg transition-all"
+                      >
+                        {cat}
+                      </Link>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          {/* Authors */}
+          <Link
+            href="/authors"
+            className="text-sm text-white/70 hover:text-white"
+          >
+            Authors
+          </Link>
         </div>
 
         {/* Actions */}
         <div className="flex gap-4 items-center">
-          {/* Search Box */}
+          {/* Search */}
           <div className="hidden md:flex items-center bg-white/10 px-3 py-2 rounded-full backdrop-blur-md">
             <FaSearch className="text-white/60 text-sm mr-2" />
             <input
@@ -77,11 +126,11 @@ export default function Navbar() {
             />
           </div>
 
-          {/* Get Started Button */}
+          {/* CTA */}
           <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
             <Link
               href="/register"
-              className="px-5 py-2 rounded-full backdrop-blur-md bg-linear-to-r from-[#adc6ff] to-[#4d8eff] text-black font-medium hover:from-[#4d8eff] hover:to-[#adc6ff]"
+              className="px-5 py-2 rounded-full bg-linear-to-r from-[#adc6ff] to-[#4d8eff] text-black font-medium hover:from-[#4d8eff] hover:to-[#adc6ff]"
             >
               Get Started
             </Link>

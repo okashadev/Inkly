@@ -86,6 +86,7 @@ export default function AuthorsPage() {
               {
                 name: "Alex River",
                 username: "@ariver_dev",
+                id: 1,
                 posts: 142,
                 followers: "12.4k",
                 img: "https://lh3.googleusercontent.com/aida-public/AB6AXuDDvbT40wjhHdnyJU_mGZMquJ2lDrPQ8whOgBjgzC-cwnagLSZTc2NeIT_xQq18st8vpbUvJRJto61uYtdJ79RansYyBXxNLSzTy5hIi-g7KvyzyU35sWdaWNPXa4EiTD8ujmuKSD-Xaszmrg5sZiLlpb70_om7oHNqeUFpwFuQPWj-GI1vBXY9PArPJjotxwZ5UZ-gcbI95pds8EZ29K9shTpImDqVcCGFsMwLb671rtJlv40JV6piee3zzvbvGNqerQ3g4Lu-veFU",
@@ -93,12 +94,14 @@ export default function AuthorsPage() {
               {
                 name: "Sarah Chen",
                 username: "@schen_design",
+                id: 2,
                 posts: 89,
                 followers: "45.2k",
                 img: "https://lh3.googleusercontent.com/aida-public/AB6AXuDL1PtlWplXJkXNwRSQCWKtXGuqJTxYGpPnybCpVZGfCm9LweziwgXXqKX1weQvm526m0ztRBoi3HnacWko3AXb2zE3oNXGlmixutxvMSKqNhbP1eDHgTPG85EDaLUlcSoBia3KmAFF04679dOkzaV0EE85JvIVN17SoFycrhSJs-Chf4BjhpwON60ejRLZQg-S5nAKo6fski8SSTjTDH_FVUiYs-H-NsrCwCv6y6pZ5iryFGcnKIeQv51CtDb8_cwLjQ_suaOUTWwV",
               },
               {
                 name: "Jordan Watts",
+                id: 3,
                 username: "@jwatts_arch",
                 posts: 214,
                 followers: "8.9k",
@@ -130,7 +133,7 @@ export default function AuthorsPage() {
                 </div>
 
                 <Link
-                  href={`/author/${a.username.replace("@", "")}`}
+                  href={`/authors/profile/${a.id}`}
                   className="block bg-[#4d8eff] text-black font-bold py-3 rounded-full"
                 >
                   View Profile
@@ -171,7 +174,7 @@ export default function AuthorsPage() {
                 </p>
 
                 <Link
-                  href={`/author/${name.toLowerCase().replaceAll(" ", "-")}`}
+                  href={`/authors/profile/4`}
                   className="text-[#4d8eff] text-sm font-bold"
                 >
                   View Profile →
