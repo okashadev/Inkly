@@ -1,10 +1,12 @@
+"use client";
+
 import { AppSidebar } from "@/components/dashboard/app-sidebar"
 import { TopNav } from "@/components/dashboard/top-nav"
 import { StatsCards } from "@/components/dashboard/stats-cards"
 import { RecentPosts } from "@/components/dashboard/recent-posts"
 import { QuickActions } from "@/components/dashboard/quick-actions"
-// import { GrowthChart } from "@/components/dashboard/growth-chart"
 import { TrendingTopics } from "@/components/dashboard/trending-topics"
+// import { GrowthChart } from "@/components/dashboard/growth-chart"
 
 export default function DashboardPage() {
   return (
@@ -27,7 +29,7 @@ export default function DashboardPage() {
             </div>
             <button
               type="button"
-              className="w-full rounded-full bg-gradient-to-br from-primary to-primary-container py-4 font-display text-sm font-bold tracking-tight text-on-primary-container shadow-lg shadow-primary/10 md:hidden"
+              className="w-full rounded-full bg-linear-to-br from-primary to-primary-container py-4 font-display text-sm font-bold tracking-tight text-on-primary-container shadow-lg shadow-primary/10 md:hidden"
             >
               Write New Blog
             </button>
