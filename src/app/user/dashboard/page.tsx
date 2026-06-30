@@ -1,5 +1,3 @@
-// "use client";
-
 import { AppSidebar } from "@/components/dashboard/app-sidebar"
 import { TopNav } from "@/components/dashboard/top-nav"
 import { StatsCards } from "@/components/dashboard/stats-cards"
@@ -8,32 +6,32 @@ import { QuickActions } from "@/components/dashboard/quick-actions"
 import { TrendingTopics } from "@/components/dashboard/trending-topics"
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
-// import { GrowthChart } from "@/components/dashboard/growth-chart"
 
 export default async function DashboardPage() {
-  // const session = await auth();
+  const session = await auth();
 
-  // console.log("DASHBOARD SESSION:", session);
+  if (!session || !session.user) {
+    redirect("/login");
+  }
 
-  // if (!session) {
-  //   redirect("/login");
-  // }
+  const user = session.user;
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <AppSidebar />
-      <TopNav />
+      <TopNav user={user} />
 
       <main className="grid min-h-screen grid-cols-1 gap-8 px-6 pb-12 pt-28 md:pl-72 md:pr-12 lg:grid-cols-12">
-        {/* Content Area */}
+        
         <div className="space-y-12 lg:col-span-8">
-          {/* Welcome Header */}
-          <section className="flex flex-col justify-between gap-6 md:flex-row md:items-end">
+          
+          <section className="flex md:hidden flex-col justify-between gap-6">
             <div>
               <h2 className="mb-2 text-sm font-medium uppercase tracking-widest text-muted-foreground">
                 Dashboard
               </h2>
-              <h3 className="text-balance font-display text-4xl font-extrabold tracking-tighter text-foreground md:text-5xl">
-                Welcome back, Alex
+              <h3 className="text-balance font-display text-3xl font-extrabold tracking-tighter text-foreground">
+                Welcome back, {user.name || "User"}
               </h3>
             </div>
             <button
@@ -48,11 +46,10 @@ export default async function DashboardPage() {
           <RecentPosts />
         </div>
 
-        {/* Right Rail */}
         <aside className="space-y-8 lg:col-span-4">
           <QuickActions />
           {/* <GrowthChart /> */}
-          <TrendingTopics />
+          {/* <TrendingTopics /> */}
         </aside>
       </main>
     </div>

@@ -1,36 +1,45 @@
-import { Search, Bell } from "lucide-react"
-import Image from "next/image"
-import { cn } from "@/lib/utils"
+"use client";
 
-const tabs = [
-  { label: "Overview", active: true },
-  { label: "Community", active: false },
-  { label: "Support", active: false },
-]
+import Image from "next/image";
+import { useState, useEffect, useRef } from "react";
+import { Search, Bell } from "lucide-react";
+import Link from "next/link";
+import { motion, AnimatePresence } from "framer-motion";
+import { signOut } from "next-auth/react";
 
-export function TopNav() {
+export function TopNav({ user }: { user: any }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsOpen(false);
+      }
+    }
+
+    if (isOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isOpen]);
+
   return (
-    <header className="fixed left-0 right-0 top-0 z-30 flex h-20 items-center justify-between border-b border-border/30 bg-background/70 px-6 backdrop-blur-xl md:left-64 md:px-12">
+    <header className="fixed left-0 right-0 top-0 z-30 flex h-25 items-center justify-between border-b border-border/30 bg-background/70 px-6 backdrop-blur-xl md:left-64 md:px-12">
       <div className="flex items-center gap-4">
         <div className="font-display text-xl font-extrabold tracking-tighter text-primary md:hidden">
           Inkly
         </div>
-        <nav className="hidden items-center gap-6 md:flex" aria-label="Primary">
-          {tabs.map((tab) => (
-            <a
-              key={tab.label}
-              href="#"
-              className={cn(
-                "font-display text-sm font-bold tracking-tight transition-colors",
-                tab.active
-                  ? "border-b-2 border-primary pb-1 text-primary"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-              aria-current={tab.active ? "page" : undefined}
-            >
-              {tab.label}
-            </a>
-          ))}
+        <nav className="hidden md:flex flex-col" aria-label="Primary">
+          <h2 className="mb-2 text-sm font-medium uppercase tracking-widest text-muted-foreground">
+            Dashboard
+          </h2>
+          <h3 className="text-balance font-display text-2xl font-extrabold tracking-tighter text-foreground">
+            Welcome back, {user.name || "User"}
+          </h3>
         </nav>
       </div>
 
@@ -53,20 +62,72 @@ export function TopNav() {
             aria-hidden="true"
           />
         </button>
-        <button
-          type="button"
-          className="h-10 w-10 overflow-hidden rounded-full border border-outline-variant/30 bg-surface-container-high transition-transform active:scale-95"
-          aria-label="Open profile menu"
-        >
-          <Image
-            src="/images/avatar.jpg"
-            alt="Alex's avatar"
-            width={40}
-            height={40}
-            className="h-full w-full object-cover"
-          />
-        </button>
+        <div className="relative" ref={dropdownRef}>
+          {/* 🔘 Trigger Button */}
+          <button
+            type="button"
+            onClick={() => setIsOpen(!isOpen)}
+            className="h-10 w-10 overflow-hidden rounded-full cursor-pointer focus:outline-none ring-2 ring-transparent hover:ring-primary/50 transition-all active:scale-95"
+            aria-label="Open profile menu"
+          >
+            <Image
+              src="/images/avatar.jpg"
+              alt="Alex's avatar"
+              width={40}
+              height={40}
+              className="h-full w-full object-cover"
+            />
+          </button>
+
+          {/* 🎬 Framer Motion Dropdown Menu */}
+          <AnimatePresence>
+            {isOpen && (
+              <motion.div
+                initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                animate={{ opacity: 1, y: 4, scale: 1 }}
+                exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                transition={{ duration: 0.15, ease: "easeOut" }}
+                className="absolute right-0 mt-2 w-48 rounded-2xl bg-[#171f33] border border-border/30 p-2 shadow-2xl z-50 text-[#dae2fd]"
+              >
+                {/* Header / Label */}
+                <div className="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  My Account
+                </div>
+
+                {/* Links Group */}
+                <div className="space-y-0.5">
+                  <Link
+                    href="/user/profile"
+                    onClick={() => setIsOpen(false)}
+                    className="flex w-full items-center px-3 py-2 text-sm rounded-xl hover:bg-accent/50 hover:text-primary transition-colors cursor-pointer"
+                  >
+                    Profile
+                  </Link>
+                  <Link
+                    href="/user/settings"
+                    onClick={() => setIsOpen(false)}
+                    className="flex w-full items-center px-3 py-2 text-sm rounded-xl hover:bg-accent/50 hover:text-primary transition-colors cursor-pointer"
+                  >
+                    Settings
+                  </Link>
+                </div>
+
+                {/* Separator Line */}
+                <div className="my-1.5 h-px bg-border/20" />
+
+                {/* Logout Button */}
+                <button
+                  type="button"
+                  onClick={() => signOut({ callbackUrl: "/login" })}
+                  className="flex w-full items-center px-3 py-2 text-sm text-red-400 rounded-xl hover:bg-red-500/10 focus:bg-red-500/10 transition-colors cursor-pointer text-left font-medium"
+                >
+                  Log out
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
     </header>
-  )
+  );
 }

@@ -7,8 +7,8 @@ import { TopNav } from "@/components/dashboard/top-nav";
 export default function Settings() {
   return (
     <div className="min-h-screen bg-background text-foreground">
-      {/* <AppSidebar />
-      <TopNav /> */}
+      <AppSidebar />
+      <TopNav user={"okasha"} />
       <main>
         <div className="overflow-y-auto md:px-12 py-16 space-y-24 bg-[#0F172A] text-[#F8FAFC] pb-32">
           {/* HERO */}

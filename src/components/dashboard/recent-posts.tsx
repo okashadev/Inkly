@@ -46,12 +46,12 @@ export function RecentPosts() {
     <section aria-label="Recent posts" className="space-y-6">
       <div className="flex items-center justify-between">
         <h4 className="font-display text-2xl font-bold text-foreground">Your Recent Posts</h4>
-        <button
+        {/* <button
           type="button"
           className="text-sm font-medium text-primary underline-offset-4 decoration-2 transition-all hover:underline"
         >
           View all library
-        </button>
+        </button> */}
       </div>
 
       <ul className="space-y-4">

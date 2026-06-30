@@ -1,13 +1,39 @@
 "use client";
-import { LayoutDashboard, FileText, LineChart, Settings } from "lucide-react";
+import { LayoutDashboard, FileText, User2Icon, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { signOut } from "next-auth/react";
+import Link from "next/link";
 
 const navItems = [
-  { label: "Overview", icon: LayoutDashboard, active: true },
-  { label: "Posts", icon: FileText, active: false },
-  { label: "Analytics", icon: LineChart, active: false },
-  { label: "Settings", icon: Settings, active: false },
+  {
+    label: "Dashboard",
+    icon: LayoutDashboard,
+    active: false,
+    url: "/user/dashboard",
+  },
+  {
+    label: "My Blogs",
+    icon: FileText,
+    active: false,
+    url: "/user/my_blogs",
+  },
+  {
+    label: "Explore",
+    icon: FileText,
+    active: false,
+    url: "/blog",
+  },
+  {
+    label: "Profile",
+    icon: User2Icon,
+    active: false,
+    url: "/user/profile",
+  },
+  {
+    label: "Settings",
+    icon: Settings,
+    active: false,
+    url: "/user/settings",
+  },
 ];
 
 export function AppSidebar() {
@@ -29,9 +55,9 @@ export function AppSidebar() {
         {navItems.map((item) => {
           const Icon = item.icon;
           return (
-            <a
+            <Link
               key={item.label}
-              href="#"
+              href={item.url}
               className={cn(
                 "flex items-center gap-3 rounded-full px-4 py-3 text-sm font-medium transition-all",
                 item.active
@@ -42,23 +68,19 @@ export function AppSidebar() {
             >
               <Icon className="h-5 w-5" aria-hidden="true" />
               <span>{item.label}</span>
-            </a>
+            </Link>
           );
         })}
       </nav>
 
-      <div className="mt-auto px-2">
-        <button
-          onClick={() =>
-            signOut({
-              callbackUrl: "/login",
-            })
-          }
+      <div className="mt-auto px-2 w-full">
+        <Link
+          href={"/user/post/add"}
           type="button"
-          className="w-full rounded-full bg-linear-to-br from-primary to-primary-container py-4 font-display text-sm font-bold tracking-tight text-on-primary-container shadow-lg shadow-primary/10 transition-all hover:brightness-110 active:scale-95"
+          className="w-full rounded-full px-12 bg-linear-to-br from-primary to-primary-container py-4 font-display text-sm font-bold tracking-tight text-on-primary-container shadow-lg shadow-primary/10 transition-all hover:brightness-110 active:scale-95"
         >
           Write New Blog
-        </button>
+        </Link>
       </div>
     </aside>
   );

@@ -4,18 +4,27 @@ import { AppSidebar } from "@/components/dashboard/app-sidebar";
 import { motion } from "framer-motion";
 import Image from "next/image";
 import { useState } from "react";
+import { redirect } from "next/navigation";
+// import { auth } from "@/auth";
 
 export default function NewPost() {
   const [title, setTitle] = useState("Untitled Story...");
   const [subtitle, setSubtitle] = useState("");
   const [content, setContent] = useState("");
 
+  // const session = await auth();
+
+  //   if (!session || !session.user) {
+  //     redirect("/login");
+  //   }
+
+  //   const user = session.user;
+
   return (
     <div className="bg-[#0b1326] text-[#dae2fd] min-h-screen">
-<AppSidebar />
+      <AppSidebar />
       {/* NAVBAR */}
       <nav className="fixed left-0 right-0 top-0 z-30 flex h-20 items-center justify-between border-b border-border/30 bg-background/70 px-6 backdrop-blur-xl md:left-64 md:px-12">
-        
         <div className="flex items-center gap-8">
           <input
             value={title}
@@ -52,16 +61,13 @@ export default function NewPost() {
       </div>
 
       <main className="flex">
-
         {/* EDITOR */}
         <div className="grow flex justify-center pt-24 pb-32 px-6">
-          
           <motion.article
             initial={{ opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}
             className="w-full max-w-3xl flex flex-col gap-8"
           >
-
             {/* HEADER */}
             <div className="space-y-4">
               <textarea
@@ -83,7 +89,6 @@ export default function NewPost() {
 
             {/* BODY */}
             <div className="relative group min-h-125">
-
               {/* FLOATING BUTTON */}
               <motion.div
                 initial={{ opacity: 0 }}
@@ -99,14 +104,10 @@ export default function NewPost() {
               <div
                 contentEditable
                 suppressContentEditableWarning
-                onInput={(e) =>
-                  setContent((e.target as HTMLElement).innerText)
-                }
+                onInput={(e) => setContent((e.target as HTMLElement).innerText)}
                 className="w-full outline-none text-lg text-slate-300 leading-relaxed min-h-100"
               >
-                <p className="text-slate-500">
-                  Start writing your story...
-                </p>
+                <p className="text-slate-500">Start writing your story...</p>
               </div>
 
               {/* SLASH HINT */}
@@ -115,16 +116,12 @@ export default function NewPost() {
                 Type to insert images, blocks, or code...
               </div>
             </div>
-
           </motion.article>
         </div>
 
         {/* SIDEBAR */}
         <aside className="fixed right-0 top-0 h-screen w-80 bg-slate-900 shadow-[-10px_0_30px_rgba(0,0,0,0.2)] pt-24 px-6 hidden lg:flex flex-col">
-          
-          <h3 className="text-sm uppercase text-white mb-6">
-            Post Settings
-          </h3>
+          <h3 className="text-sm uppercase text-white mb-6">Post Settings</h3>
 
           {/* READING TIME */}
           <div className="bg-[#1E293B] p-4 rounded-xl mb-6 flex justify-between">
@@ -148,9 +145,7 @@ export default function NewPost() {
 
           {/* TAGS */}
           <div className="mb-6">
-            <label className="text-xs text-slate-400 mb-2 block">
-              Tags
-            </label>
+            <label className="text-xs text-slate-400 mb-2 block">Tags</label>
 
             <input
               placeholder="Add tag..."
@@ -184,7 +179,6 @@ export default function NewPost() {
         <button>⚙️</button>
         <button>🚀</button>
       </div>
-
     </div>
   );
 }

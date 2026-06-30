@@ -2,11 +2,9 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
-/* @custom-variant dark (&:is(.dark *)); */
 
 /* ---------- Inkly Editorial Dashboard theme ---------- */
 :root {
-  /* Core surfaces */
   --background: #0b1326;
   --foreground: #dae2fd;
 
@@ -16,11 +14,9 @@
   --popover: #171f33;
   --popover-foreground: #dae2fd;
 
-  /* Primary: light editorial blue */
   --primary: #adc6ff;
   --primary-foreground: #00285d;
 
-  /* Secondary: muted slate */
   --secondary: #3e495d;
   --secondary-foreground: #aeb9d0;
 
@@ -37,7 +33,6 @@
   --input: #2d3449;
   --ring: #adc6ff;
 
-  /* Inkly extended tokens */
   --surface: #0b1326;
   --surface-container-lowest: #060e20;
   --surface-container-low: #131b2e;
@@ -50,7 +45,6 @@
   --outline: #8c909f;
   --outline-variant: #424754;
 
-  /* Charts */
   --chart-1: #adc6ff;
   --chart-2: #4d8eff;
   --chart-3: #8ab4ff;
@@ -59,7 +53,6 @@
 
   --radius: 1rem;
 
-  /* Sidebar */
   --sidebar: #060e20;
   --sidebar-foreground: #dae2fd;
   --sidebar-primary: #adc6ff;
@@ -71,7 +64,7 @@
 }
 
 @theme inline {
- /* --font-sans: var(--font-inter), system-ui, sans-serif;
+  /* --font-sans: var(--font-inter), system-ui, sans-serif;
   --font-display: var(--font-manrope), system-ui, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace; */
 
@@ -140,4 +133,19 @@
   html {
     @apply font-sans;
   }
+}
+
+:root {
+  --removed-body-scroll-bar-size: 0px !important;
+}
+
+html[data-scroll-locked],
+body[data-scroll-locked] {
+  overflow: auto !important;
+  margin-right: 0px !important;
+  padding-right: 0px !important;
+}
+
+html[style*="pointer-events: none"] body {
+  overflow: auto !important;
 }
