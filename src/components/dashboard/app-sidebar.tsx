@@ -1,12 +1,14 @@
-import { LayoutDashboard, FileText, LineChart, Settings } from "lucide-react"
-import { cn } from "@/lib/utils"
+"use client";
+import { LayoutDashboard, FileText, LineChart, Settings } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { signOut } from "next-auth/react";
 
 const navItems = [
   { label: "Overview", icon: LayoutDashboard, active: true },
   { label: "Posts", icon: FileText, active: false },
   { label: "Analytics", icon: LineChart, active: false },
   { label: "Settings", icon: Settings, active: false },
-]
+];
 
 export function AppSidebar() {
   return (
@@ -25,7 +27,7 @@ export function AppSidebar() {
 
       <nav className="flex-1 space-y-2">
         {navItems.map((item) => {
-          const Icon = item.icon
+          const Icon = item.icon;
           return (
             <a
               key={item.label}
@@ -41,18 +43,23 @@ export function AppSidebar() {
               <Icon className="h-5 w-5" aria-hidden="true" />
               <span>{item.label}</span>
             </a>
-          )
+          );
         })}
       </nav>
 
       <div className="mt-auto px-2">
         <button
+          onClick={() =>
+            signOut({
+              callbackUrl: "/login",
+            })
+          }
           type="button"
-          className="w-full rounded-full bg-gradient-to-br from-primary to-primary-container py-4 font-display text-sm font-bold tracking-tight text-on-primary-container shadow-lg shadow-primary/10 transition-all hover:brightness-110 active:scale-95"
+          className="w-full rounded-full bg-linear-to-br from-primary to-primary-container py-4 font-display text-sm font-bold tracking-tight text-on-primary-container shadow-lg shadow-primary/10 transition-all hover:brightness-110 active:scale-95"
         >
           Write New Blog
         </button>
       </div>
     </aside>
-  )
+  );
 }

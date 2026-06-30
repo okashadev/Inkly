@@ -7,7 +7,6 @@ export async function POST(req: Request) {
 
     const { name, username, email, password } = body;
 
-
     if (!name || !username || !email || !password) {
       return Response.json(
         {
@@ -17,7 +16,6 @@ export async function POST(req: Request) {
         { status: 400 },
       );
     }
-
 
     const existingEmail = await prisma.user.findUnique({
       where: {
@@ -30,13 +28,11 @@ export async function POST(req: Request) {
         {
           success: false,
           message: "Email already exists",
+          field: "email",
         },
-        {
-          status: 409,
-        },
+        { status: 409 },
       );
     }
-
 
     const existingUsername = await prisma.user.findUnique({
       where: {
@@ -49,14 +45,13 @@ export async function POST(req: Request) {
         {
           success: false,
           message: "Username already taken",
+          field: "username",
         },
         { status: 409 },
       );
     }
 
-
     const hashedPassword = await bcrypt.hash(password, 10);
-
 
     const user = await prisma.user.create({
       data: {
