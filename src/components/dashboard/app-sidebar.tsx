@@ -2,6 +2,7 @@
 import { LayoutDashboard, FileText, User2Icon, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
+import { MdTravelExplore } from "react-icons/md";
 
 const navItems = [
   {
@@ -18,7 +19,7 @@ const navItems = [
   },
   {
     label: "Explore",
-    icon: FileText,
+    icon: MdTravelExplore,
     active: false,
     url: "/blog",
   },
@@ -43,13 +44,14 @@ export function AppSidebar() {
       aria-label="Main navigation"
     >
       <div className="mb-12 px-4">
-        <h1 className="font-display text-xl font-extrabold tracking-tight text-primary">
+        <Link href='/' className="font-display text-xl font-extrabold tracking-tight text-primary">
           Inkly
-        </h1>
+        </Link>
         <p className="mt-1 text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground/70">
           Editorial Dashboard
         </p>
       </div>
+      {/* <MdTravelExplore  /> */}
 
       <nav className="flex-1 space-y-2">
         {navItems.map((item) => {

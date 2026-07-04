@@ -30,9 +30,9 @@ export function TopNav({ user }: { user: any }) {
   return (
     <header className="fixed left-0 right-0 top-0 z-30 flex h-25 items-center justify-between border-b border-border/30 bg-background/70 px-6 backdrop-blur-xl md:left-64 md:px-12">
       <div className="flex items-center gap-4">
-        <div className="font-display text-xl font-extrabold tracking-tighter text-primary md:hidden">
+        <Link href="/" className="font-display text-xl font-extrabold tracking-tighter text-primary md:hidden">
           Inkly
-        </div>
+        </Link>
         <nav className="hidden md:flex flex-col" aria-label="Primary">
           <h2 className="mb-2 text-sm font-medium uppercase tracking-widest text-muted-foreground">
             Dashboard
@@ -63,7 +63,6 @@ export function TopNav({ user }: { user: any }) {
           />
         </button>
         <div className="relative" ref={dropdownRef}>
-          {/* 🔘 Trigger Button */}
           <button
             type="button"
             onClick={() => setIsOpen(!isOpen)}
@@ -79,7 +78,6 @@ export function TopNav({ user }: { user: any }) {
             />
           </button>
 
-          {/* 🎬 Framer Motion Dropdown Menu */}
           <AnimatePresence>
             {isOpen && (
               <motion.div
@@ -87,21 +85,31 @@ export function TopNav({ user }: { user: any }) {
                 animate={{ opacity: 1, y: 4, scale: 1 }}
                 exit={{ opacity: 0, y: 10, scale: 0.95 }}
                 transition={{ duration: 0.15, ease: "easeOut" }}
-                className="absolute right-0 mt-2 w-48 rounded-2xl bg-[#171f33] border border-border/30 p-2 shadow-2xl z-50 text-[#dae2fd]"
+                className="absolute right-0 mt-2 w-56 rounded-2xl bg-[#171f33] border border-border/30 p-2 shadow-2xl z-50 text-[#dae2fd]"
               >
                 {/* Header / Label */}
-                <div className="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  My Account
+                <div className="px-3 py-2 text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+                  {user?.name}
                 </div>
+                <p className="px-3 text-xs text-muted-foreground lowercase">{user?.email}</p>
+
+                <div className="my-1.5 h-px bg-border/20" />
 
                 {/* Links Group */}
                 <div className="space-y-0.5">
                   <Link
-                    href="/user/profile"
+                    href="/user/dashboard"
                     onClick={() => setIsOpen(false)}
                     className="flex w-full items-center px-3 py-2 text-sm rounded-xl hover:bg-accent/50 hover:text-primary transition-colors cursor-pointer"
                   >
-                    Profile
+                    Dashboard
+                  </Link>
+                  <Link
+                    href="/user/my_blogs"
+                    onClick={() => setIsOpen(false)}
+                    className="flex w-full items-center px-3 py-2 text-sm rounded-xl hover:bg-accent/50 hover:text-primary transition-colors cursor-pointer"
+                  >
+                    My Blogs
                   </Link>
                   <Link
                     href="/user/settings"

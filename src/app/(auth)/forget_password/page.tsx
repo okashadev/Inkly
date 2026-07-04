@@ -21,7 +21,11 @@ const page = () => {
   }, [status, router]);
 
   if (status === "loading") {
-    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        Loading...
+      </div>
+    );
   }
   return (
     <>
@@ -65,7 +69,7 @@ const page = () => {
               <div className="text-center flex justify-center w-full items-center gap-2 text-sm">
                 <IoArrowBack />
                 <Link href="/login" className="text-[#adc6ff] cursor-pointer">
-                   Back to Login
+                  Back to Login
                 </Link>
               </div>
             </CardContent>
