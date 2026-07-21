@@ -5,8 +5,12 @@ import Footer from "@/components/layout/guest/Footer";
 import { motion } from "framer-motion";
 import CTA from "@/components/home/CTA";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
+import Spinner from "@/components/home/Spinner";
 
 const Page = () => {
+  const {data: session, status} = useSession();
+  // console.log(session);
   const container = {
     hidden: {},
     show: {
@@ -24,6 +28,17 @@ const Page = () => {
       transition: { duration: 0.6, ease: "easeOut" as const },
     },
   };
+
+  if (status === "loading") {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-xl font-bold text-white font-manrope flex justify-center items-center gap-4">
+          <Spinner />
+          Inkly
+        </div>
+      </div>
+    );
+  }
   return (
     <>
       <Navbar />
@@ -175,8 +190,7 @@ const Page = () => {
           </motion.aside>
         </div>
 
-        {/* CTA SECTION */}
-        <CTA />
+        {status === "unauthenticated" && <CTA />}
       </main>
       <Footer />
     </>

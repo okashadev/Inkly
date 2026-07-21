@@ -6,7 +6,6 @@ datasource db {
   provider = "postgresql"
 }
 
-
 model User {
   id        String   @id @default(cuid())
   name      String?
@@ -18,20 +17,18 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
- 
-  posts     Post[] 
-  comments  Comment[]
-  likes     Like[]   
- 
-  followers Follow[] @relation("FollowingRelation") 
-  following Follow[] @relation("FollowerRelation") 
-}
+  posts    Post[]
+  comments Comment[]
+  likes    Like[]
 
+  followers Follow[] @relation("FollowingRelation")
+  following Follow[] @relation("FollowerRelation")
+}
 
 model Follow {
   id          String   @id @default(cuid())
-  followerId  String   
-  followingId String  
+  followerId  String
+  followingId String
   createdAt   DateTime @default(now())
 
   follower  User @relation("FollowerRelation", fields: [followerId], references: [id], onDelete: Cascade)
@@ -45,31 +42,34 @@ model Category {
   name      String   @unique // e.g., "Programming"
   slug      String   @unique // e.g., "programming" (URL routing ke liye)
   createdAt DateTime @default(now())
-  
-  posts     Post[]
+
+  posts Post[]
 }
 
-
 model Post {
-  id          String    @id @default(cuid())
+  id          String  @id @default(cuid())
   title       String
-  slug        String    @unique // e.g., "my-first-blog-post" (URL ke liye)
-  content     String    @db.Text // @db.Text lambe blogs/articles ke liye zaroori hai
-  description String?   @db.VarChar(255) // Choti summary jo feed par dikhegi
-  published   Boolean   @default(false) // Dashboard par draft vs publish manage karne ke liye
-  views       Int       @default(0) // Dashboard overview analytics ke liye
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  slug        String  @unique // e.g., "my-first-blog-post"
+  content     String  @db.Text // TipTap ya Editor.js ka dynamic output yahan save hoga
+  description String? @db.VarChar(255) // Choti summary jo feed par dikhegi
+
+  coverImage  String?
+  readingTime Int     @default(1)
+
+  published Boolean  @default(false)
+  views     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
-  authorId    String
-  author      User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
 
-  categoryId  String
-  category    Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  categoryId String?
+  category   Category? @relation(fields: [categoryId], references: [id], onDelete: Restrict)
 
-  comments    Comment[]
-  likes       Like[]
+  comments Comment[]
+  likes    Like[]
 }
 
 // 4. Comments Table
@@ -80,11 +80,11 @@ model Comment {
   updatedAt DateTime @updatedAt
 
   // Relations
-  authorId  String
-  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
 
-  postId    String
-  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  postId String
+  post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
 }
 
 // 5. Likes Table
@@ -93,11 +93,11 @@ model Like {
   createdAt DateTime @default(now())
 
   // Relations
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  postId    String
-  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  postId String
+  post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
 
   @@unique([userId, postId])
 }

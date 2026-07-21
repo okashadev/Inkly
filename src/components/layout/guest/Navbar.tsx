@@ -5,10 +5,9 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { FaSearch } from "react-icons/fa";
 import { useSession } from "next-auth/react";
-import { cn } from "@/lib/utils";
-import { LoaderIcon } from "lucide-react";
 import { signOut } from "next-auth/react";
 import Image from "next/image";
+import Spinner from "@/components/home/Spinner";
 
 interface Category {
   id: string;
@@ -16,16 +15,16 @@ interface Category {
   slug: string;
 }
 
-function Spinner({ className, ...props }: React.ComponentProps<"svg">) {
-  return (
-    <LoaderIcon
-      role="status"
-      aria-label="Loading"
-      className={cn("size-4 animate-spin", className)}
-      {...props}
-    />
-  );
-}
+// function Spinner({ className, ...props }: React.ComponentProps<"svg">) {
+//   return (
+//     <LoaderIcon
+//       role="status"
+//       aria-label="Loading"
+//       className={cn("size-4 animate-spin", className)}
+//       {...props}
+//     />
+//   );
+// }
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
@@ -53,10 +52,9 @@ export default function Navbar() {
         }
       })
       .catch((err) => console.error("Error loading categories:", err));
+  }, []);
 
-    }, []);
-    
-    // console.log(categories);
+  // console.log(categories);
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (
