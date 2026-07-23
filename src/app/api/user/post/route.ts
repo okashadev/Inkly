@@ -63,7 +63,7 @@ export async function GET(req: Request) {
         success: true,
         stats: {
           totalBlogs: totalBlogsCount,
-          draftCount: draftCount,
+          draftsCount: draftCount,
           totalViews: aggregateViews._sum.views || 0,
         },
         posts: posts,

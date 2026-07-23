@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import Image from "next/image";
+import { toast } from "sonner";
 
 // Types
 interface Post {
@@ -41,7 +42,7 @@ const item = {
   show: { opacity: 1, y: 0 },
 };
 
-export default function MyBlogsClient({ user }: { user: any }) {
+export default function MyBlogsClient() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [stats, setStats] = useState<Stats>({
     totalBlogs: 0,
@@ -50,14 +51,16 @@ export default function MyBlogsClient({ user }: { user: any }) {
   });
   const [loading, setLoading] = useState(true);
 
-  // States for search, tabs, & sorting
   const [activeTab, setActiveTab] = useState<"All" | "Drafts" | "Published">(
     "All",
   );
   const [searchQuery, setSearchQuery] = useState("");
   const [sortOrder, setSortOrder] = useState<"desc" | "asc">("desc");
 
-  // API Call Handler
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [postToDelete, setPostToDelete] = useState<Post | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   const fetchBlogs = async () => {
     setLoading(true);
     try {
@@ -91,7 +94,38 @@ export default function MyBlogsClient({ user }: { user: any }) {
     return () => clearTimeout(timer);
   }, [activeTab, searchQuery]);
 
-  // Client side quick sorting
+  const handleDeleteConfirm = async () => {
+    if (!postToDelete) return;
+
+    setIsDeleting(true);
+    try {
+      const res = await fetch(`/api/user/post/delete?id=${postToDelete.id}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        toast.success(data.message || "Post Deleted Successfully!");
+        setPosts((prev) => prev.filter((p) => p.id !== postToDelete.id));
+        setStats((prev) => ({
+          ...prev,
+          totalBlogs: Math.max(0, prev.totalBlogs - 1),
+          draftsCount: postToDelete.published
+            ? prev.draftsCount
+            : Math.max(0, prev.draftsCount - 1),
+        }));
+        setPostToDelete(null);
+      } else {
+        toast.error(data.error || "Failed to delete post.");
+      }
+    } catch (error) {
+      console.error("Error deleting post:", error);
+      toast.error("Something went wrong while deleting.");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const sortedPosts = [...posts].sort((a, b) => {
     const dateA = new Date(a.createdAt).getTime();
     const dateB = new Date(b.createdAt).getTime();
@@ -99,7 +133,7 @@ export default function MyBlogsClient({ user }: { user: any }) {
   });
 
   return (
-    <main className="md:ml-64 pt-26 px-8 pb-12 min-h-screen bg-[#0F172A] text-white">
+    <main className="md:ml-64 pt-26 px-8 pb-12 min-h-screen bg-[#0F172A] text-white relative">
       {/* Hero Header */}
       <motion.section
         variants={container}
@@ -149,7 +183,7 @@ export default function MyBlogsClient({ user }: { user: any }) {
           },
           {
             title: "Drafts Count",
-            value: stats.draftsCount ?? 0,
+            value: Number(stats.draftsCount) || 0,
             sub: "Ready to publish",
           },
         ].map((card, i) => (
@@ -186,7 +220,7 @@ export default function MyBlogsClient({ user }: { user: any }) {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full bg-[#1E293B] border border-white/5 rounded-xl py-4 pl-6 pr-4 text-white focus:ring-2 focus:ring-blue-500/30 outline-none transition-all"
-            placeholder="Search by title, tags or content..."
+            placeholder="Search by title, category or content..."
           />
         </div>
 
@@ -238,8 +272,8 @@ export default function MyBlogsClient({ user }: { user: any }) {
             <motion.article
               key={post.id}
               variants={item}
-              whileHover={{ y: -10 }}
-              className="group bg-[#1E293B] rounded-xl overflow-hidden transition-all flex flex-col justify-between"
+              whileHover={{ y: -6 }}
+              className="group bg-[#1E293B] rounded-xl overflow-hidden transition-all flex flex-col justify-between relative"
             >
               <div>
                 {/* Cover Image & Status Badge */}
@@ -249,7 +283,7 @@ export default function MyBlogsClient({ user }: { user: any }) {
                       src={post.coverImage}
                       alt={post.title}
                       fill
-                      className="w-full h-full object-cover group-hover:scale-108 transition-transform duration-500"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-slate-600 text-xs">
@@ -267,6 +301,49 @@ export default function MyBlogsClient({ user }: { user: any }) {
                   >
                     {post.published ? "Published" : "Draft"}
                   </span>
+
+                  {/* Three-Dot Menu Button */}
+                  <div className="absolute top-4 right-4 z-20">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setOpenMenuId(openMenuId === post.id ? null : post.id);
+                      }}
+                      className="w-8 h-8 rounded-full bg-slate-900/70 hover:bg-slate-900 text-white flex items-center justify-center backdrop-blur-md border border-white/10 transition-colors cursor-pointer"
+                    >
+                      ⋮
+                    </button>
+
+                    {/* Dropdown Menu */}
+                    <AnimatePresence>
+                      {openMenuId === post.id && (
+                        <motion.div
+                          initial={{ opacity: 0, scale: 0.9, y: -5 }}
+                          animate={{ opacity: 1, scale: 1, y: 0 }}
+                          exit={{ opacity: 0, scale: 0.9, y: -5 }}
+                          className="absolute right-0 mt-2 w-36 bg-[#0f172a] border border-white/10 rounded-xl shadow-2xl overflow-hidden py-1.5"
+                        >
+                          <Link
+                            href={`/user/post/edit/${post.id}`}
+                            className="flex items-center gap-2 px-4 py-2 text-xs font-medium text-slate-200 hover:bg-slate-800 transition-colors"
+                          >
+                            ✏️ Edit Post
+                          </Link>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setOpenMenuId(null);
+                              setPostToDelete(post);
+                            }}
+                            className="w-full flex items-center gap-2 px-4 py-2 text-xs font-medium text-red-400 hover:bg-red-500/10 transition-colors text-left cursor-pointer"
+                          >
+                            🗑️ Delete Post
+                          </button>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
                 </div>
 
                 {/* Content */}
@@ -275,7 +352,7 @@ export default function MyBlogsClient({ user }: { user: any }) {
                     #{post.category?.name || "General"}
                   </span>
 
-                  <Link href={`/posts/edit/${post.id}`}>
+                  <Link href={`/blog/${post.id}`}>
                     <h3 className="text-xl font-bold my-2 group-hover:text-blue-400 transition line-clamp-2">
                       {post.title}
                     </h3>
@@ -304,6 +381,50 @@ export default function MyBlogsClient({ user }: { user: any }) {
           ))}
         </motion.section>
       )}
+
+      {/* Delete Confirmation Modal Overlay */}
+      <AnimatePresence>
+        {postToDelete && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-[#1e293b] border border-white/10 rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4"
+            >
+              <div className="space-y-2">
+                <h3 className="text-xl font-bold text-white">Delete Post?</h3>
+                <p className="text-sm text-slate-400">
+                  Are you sure you want to delete{" "}
+                  <span className="text-slate-200 font-semibold">
+                    "{postToDelete.title}"
+                  </span>
+                  ? This action cannot be undone.
+                </p>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4">
+                <button
+                  type="button"
+                  disabled={isDeleting}
+                  onClick={() => setPostToDelete(null)}
+                  className="px-5 py-2.5 rounded-xl border border-white/10 text-slate-300 text-xs font-semibold hover:bg-slate-800 transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={isDeleting}
+                  onClick={handleDeleteConfirm}
+                  className="px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  {isDeleting ? "Deleting..." : "Delete Permanently"}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </main>
   );
 }

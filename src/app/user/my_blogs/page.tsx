@@ -22,7 +22,7 @@ export default async function MyBlogsPage() {
       <TopNav user={user} />
       
       {/* Saara interactive aur animated UI client component handle karega */}
-      <MyBlogsClient user={user} />
+      <MyBlogsClient />
     </div>
   );
 }

@@ -9,6 +9,7 @@ import { useCreateBlockNote } from "@blocknote/react";
 import { BlockNoteView } from "@blocknote/shadcn";
 import "@blocknote/core/fonts/inter.css";
 import "@blocknote/shadcn/style.css";
+import { toast } from "sonner";
 
 interface WorkspaceProps {
   user:
@@ -19,6 +20,7 @@ interface WorkspaceProps {
         image?: string | null;
       }
     | undefined;
+  initialPostId?: string;
 }
 
 interface Category {
@@ -26,7 +28,12 @@ interface Category {
   name: string;
 }
 
-export default function InklyPostWorkspace({ user }: WorkspaceProps) {
+export default function InklyPostWorkspace({
+  user,
+  initialPostId,
+}: WorkspaceProps) {
+  const [postId, setPostId] = useState<string | null>(initialPostId || null);
+
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -60,6 +67,38 @@ export default function InklyPostWorkspace({ user }: WorkspaceProps) {
       })
       .catch((err) => console.error("Error loading categories:", err));
   }, []);
+
+  useEffect(() => {
+    if (initialPostId) {
+      fetch(`/api/user/post/get?id=${initialPostId}`)
+        .then((res) => res.json())
+        .then((resData) => {
+          if (resData.success && resData.post) {
+            const post = resData.post;
+
+            // Form data fill karein
+            setFormData({
+              title: post.title || "",
+              description: post.description || "",
+              categoryId: post.categoryId || "",
+              coverFile: null,
+              coverPreview: post.coverImage || "",
+              readingTime: post.readingTime || 1,
+            });
+
+            // BlockNote Editor ka content populate karein
+            if (post.content) {
+              async function loadHTML() {
+                const blocks = await editor.tryParseHTMLToBlocks(post.content);
+                editor.replaceBlocks(editor.document, blocks);
+              }
+              loadHTML();
+            }
+          }
+        })
+        .catch((err) => console.error("Error fetching post details:", err));
+    }
+  }, [initialPostId, editor]);
 
   //  console.log(categories);
 
@@ -96,19 +135,20 @@ export default function InklyPostWorkspace({ user }: WorkspaceProps) {
   };
 
   const handlePublish = async (isPublishedStatus: boolean) => {
+    let currentTitle = formData.title;
+
     if (isPublishedStatus) {
-      if (!formData.title || !formData.title.trim()) {
-        alert("Please enter a Title before publishing.");
+      if (!currentTitle || !currentTitle.trim()) {
+        toast.warning("Please enter a Title before publishing.");
         return;
       }
       if (!formData.categoryId) {
-        alert("Please select a Category before publishing.");
+        toast.warning("Please select a Category before publishing.");
         return;
       }
     } else {
-      // Agar Draft hai aur Title bilkul khali hai, to fallback title de do
-      if (!formData.title || !formData.title.trim()) {
-        formData.title = "Untitled Draft";
+      if (!currentTitle || !currentTitle.trim()) {
+        currentTitle = "Untitled Draft";
       }
     }
 
@@ -117,7 +157,7 @@ export default function InklyPostWorkspace({ user }: WorkspaceProps) {
       const htmlContent = await editor.blocksToFullHTML(editor.document);
       const dataToSend = new FormData();
 
-      dataToSend.append("title", formData.title);
+      dataToSend.append("title", currentTitle);
       dataToSend.append("description", formData.description);
       dataToSend.append("readingTime", formData.readingTime.toString());
       dataToSend.append("published", isPublishedStatus.toString());
@@ -134,27 +174,44 @@ export default function InklyPostWorkspace({ user }: WorkspaceProps) {
         dataToSend.append("coverImage", formData.coverFile);
       }
 
-      const response = await fetch("/api/post/add", {
-        method: "POST",
+      let endpoint = "/api/user/post/add";
+      let method = "POST";
+
+      if (postId) {
+        endpoint = `/api/user/post/update?id=${postId}`;
+        method = "PUT";
+      }
+
+      const response = await fetch(endpoint, {
+        method: method,
         body: dataToSend,
       });
 
       const result = await response.json();
-
+      // console.log(result);
 
       if (result.success) {
         if (isPublishedStatus) {
-          alert("Story Published Successfully! Redirecting...");
+          toast.success(result.message || "Post published successfully!");
           router.push("/user/my_blogs");
           router.refresh();
         } else {
-          alert("Draft Saved Successfully!");
+          if (!postId && result.post?.id) {
+            setPostId(result.post.id);
+            window.history.replaceState(
+              null,
+              "",
+              `/user/post/edit/${result.post.id}`,
+            );
+          }
+          toast.success(result.message || "Draft saved successfully!");
         }
       } else {
-        alert(`Error: ${result.error}`);
+        toast.error(`Error: ${result.error || result.message}`);
       }
     } catch (error) {
-      console.error(error);
+      console.error("Save/Publish Error:", error);
+      toast.error("Something went wrong while saving.");
     } finally {
       setIsSubmitting(false);
     }
@@ -184,7 +241,7 @@ export default function InklyPostWorkspace({ user }: WorkspaceProps) {
             disabled={isSubmitting}
             className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider disabled:opacity-50"
           >
-            {isSubmitting ? "Publishing..." : "Publish Story"}
+            {isSubmitting ? "Publishing..." : "Publish"}
           </motion.button>
         </div>
       </nav>
