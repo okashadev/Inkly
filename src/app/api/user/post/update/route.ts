@@ -1,6 +1,13 @@
 import { NextResponse } from "next/server";
+import { v2 as cloudinary } from "cloudinary";
 import { db } from "@/lib/db";
 import { auth } from "@/auth";
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
 export async function PUT(req: Request) {
   try {
@@ -29,9 +36,10 @@ export async function PUT(req: Request) {
     const description = formData.get("description") as string | null;
     const published = formData.get("published") === "true";
     const categoryId = formData.get("categoryId") as string | null;
-    // Cover image logic agar form-data mein aye
-    
-    // Check karein ke post isi logged-in user ki hai
+    const readingTime = parseInt(
+      (formData.get("readingTime") as string) || "1"
+    );
+
     const existingPost = await db.post.findUnique({
       where: { id: postId },
     });
@@ -43,7 +51,31 @@ export async function PUT(req: Request) {
       );
     }
 
-    // Database Record Update Karein
+    const file = formData.get("coverImage") as File | null;
+    let coverImageUrl = existingPost.coverImage;
+
+    if (file && typeof file !== "string" && file.size > 0) {
+      const arrayBuffer = await file.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+
+      const uploadResult = await new Promise<any>((resolve, reject) => {
+        cloudinary.uploader
+          .upload_stream(
+            {
+              folder: "inkly_blog_covers",
+              resource_type: "image",
+            },
+            (error, result) => {
+              if (error) reject(error);
+              else resolve(result);
+            }
+          )
+          .end(buffer);
+      });
+
+      coverImageUrl = uploadResult.secure_url;
+    }
+
     const updatedPost = await db.post.update({
       where: { id: postId },
       data: {
@@ -51,6 +83,8 @@ export async function PUT(req: Request) {
         content,
         description,
         published,
+        readingTime,
+        coverImage: coverImageUrl,
         ...(categoryId ? { categoryId } : {}),
       },
     });

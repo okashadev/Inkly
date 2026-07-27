@@ -39,8 +39,8 @@ model Follow {
 
 model Category {
   id        String   @id @default(cuid())
-  name      String   @unique // e.g., "Programming"
-  slug      String   @unique // e.g., "programming" (URL routing ke liye)
+  name      String   @unique 
+  slug      String   @unique
   createdAt DateTime @default(now())
 
   posts Post[]
@@ -49,9 +49,9 @@ model Category {
 model Post {
   id          String  @id @default(cuid())
   title       String
-  slug        String  @unique // e.g., "my-first-blog-post"
-  content     String  @db.Text // TipTap ya Editor.js ka dynamic output yahan save hoga
-  description String? @db.VarChar(255) // Choti summary jo feed par dikhegi
+  slug        String  @unique 
+  content     String  @db.Text
+  description String? @db.VarChar(255)
 
   coverImage  String?
   readingTime Int     @default(1)

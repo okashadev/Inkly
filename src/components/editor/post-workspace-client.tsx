@@ -10,6 +10,8 @@ import { BlockNoteView } from "@blocknote/shadcn";
 import "@blocknote/core/fonts/inter.css";
 import "@blocknote/shadcn/style.css";
 import { toast } from "sonner";
+import { useSession } from "next-auth/react";
+
 
 interface WorkspaceProps {
   user:
@@ -43,8 +45,10 @@ export default function InklyPostWorkspace({
     readingTime: 1,
   });
   const [categories, setCategories] = useState<Category[]>([]);
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { data: session, status } = useSession();
   const editor = useCreateBlockNote();
   const router = useRouter();
 
@@ -69,36 +73,64 @@ export default function InklyPostWorkspace({
   }, []);
 
   useEffect(() => {
-    if (initialPostId) {
-      fetch(`/api/user/post/get?id=${initialPostId}`)
-        .then((res) => res.json())
+    if (status === "loading") return;
+
+    if (isDataLoaded) return;
+
+    if (initialPostId && session?.user?.id) {
+      fetch(`/api/user/post/edit?id=${initialPostId}`)
+        .then(async (res) => {
+          const resData = await res.json();
+
+          if (res.status === 403 || res.status === 401 || !resData.success) {
+            toast.error(
+              resData.error || "You are not authorized to edit this post.",
+            );
+            router.push("/user/dashboard");
+            return null;
+          }
+
+          return resData;
+        })
         .then((resData) => {
-          if (resData.success && resData.post) {
-            const post = resData.post;
+          if (!resData || !resData.post) return;
 
-            // Form data fill karein
-            setFormData({
-              title: post.title || "",
-              description: post.description || "",
-              categoryId: post.categoryId || "",
-              coverFile: null,
-              coverPreview: post.coverImage || "",
-              readingTime: post.readingTime || 1,
-            });
+          const post = resData.post;
 
-            // BlockNote Editor ka content populate karein
-            if (post.content) {
-              async function loadHTML() {
+          if (post.authorId !== session.user.id) {
+            toast.error("Access Denied: Yeh aapki post nahi hai!");
+            router.push("/user/dashboard");
+            return;
+          }
+
+          setFormData({
+            title: post.title || "",
+            description: post.description || "",
+            categoryId: post.categoryId || "",
+            coverFile: null,
+            coverPreview: post.coverImage || "",
+            readingTime: post.readingTime || 1,
+          });
+
+          if (post.content && editor) {
+            async function loadHTML() {
+              try {
                 const blocks = await editor.tryParseHTMLToBlocks(post.content);
                 editor.replaceBlocks(editor.document, blocks);
+              } catch (error) {
+                console.error("Editor content parse error:", error);
               }
-              loadHTML();
             }
+            loadHTML();
           }
+          setIsDataLoaded(true);
         })
-        .catch((err) => console.error("Error fetching post details:", err));
+        .catch((err) => {
+          console.error("Error fetching post details:", err);
+          toast.error("Post details load nahi ho sakayn.");
+        });
     }
-  }, [initialPostId, editor]);
+  }, [initialPostId, editor, session?.user?.id, status, router, isDataLoaded]);
 
   //  console.log(categories);
 

@@ -3,9 +3,9 @@ import { TopNav } from "@/components/dashboard/top-nav"
 import { StatsCards } from "@/components/dashboard/stats-cards"
 import { RecentPosts } from "@/components/dashboard/recent-posts"
 import { QuickActions } from "@/components/dashboard/quick-actions"
-import { TrendingTopics } from "@/components/dashboard/trending-topics"
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
+import { GrowthChart } from "@/components/dashboard/growth-chart"
 
 export default async function DashboardPage() {
   const session = await auth();
@@ -48,8 +48,7 @@ export default async function DashboardPage() {
 
         <aside className="space-y-8 lg:col-span-4">
           <QuickActions />
-          {/* <GrowthChart /> */}
-          {/* <TrendingTopics /> */}
+          <GrowthChart />
         </aside>
       </main>
     </div>

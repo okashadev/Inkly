@@ -52,7 +52,7 @@ export default function BlogPage({
     async function fetchPost() {
       try {
         setLoading(true);
-        const res = await fetch(`/api/user/post/get?id=${id}`);
+        const res = await fetch(`/api/post/get?id=${id}`);
         const data = await res.json();
 
 
