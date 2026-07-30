@@ -39,7 +39,7 @@ export default function BlogPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
-  const {data: session, status} = useSession();
+  const { data: session, status } = useSession();
 
   const [post, setPost] = useState<PostData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -55,9 +55,14 @@ export default function BlogPage({
         const res = await fetch(`/api/post/get?id=${id}`);
         const data = await res.json();
 
+        console.log("Fetched Post Data:", data);
 
         if (data.success && data.post) {
           setPost(data.post);
+
+         if (typeof data.isFollowing === "boolean") {
+            setIsFollowing(data.isFollowing);
+          }
         } else {
           setError(data.error || "Blog post not found.");
         }
@@ -72,7 +77,7 @@ export default function BlogPage({
     if (id) {
       fetchPost();
     }
-  }, [id]);
+  }, [id, session?.user?.id]);
 
   const handleFollowClick = async () => {
     if (status === "unauthenticated") {
@@ -91,7 +96,25 @@ export default function BlogPage({
         const data = await res.json();
 
         if (data.success) {
-          setIsFollowing(!isFollowing);
+          setIsFollowing(data.isFollowing);
+
+          setPost((prevPost) => {
+            if (!prevPost || !prevPost.author) return prevPost;
+            const currentCount = prevPost.author._count?.followers ?? 0;
+            return {
+              ...prevPost,
+              author: {
+                ...prevPost.author,
+                _count: {
+                  ...prevPost.author._count,
+                  followers: data.isFollowing
+                    ? currentCount + 1
+                    : Math.max(0, currentCount - 1),
+                  posts: prevPost.author._count?.posts ?? 0,
+                },
+              },
+            };
+          });
         }
       } catch (err) {
         console.error("Follow action failed", err);
@@ -101,9 +124,9 @@ export default function BlogPage({
     }
   };
 
-  const isOwnPost = session?.user?.id && post?.author?.id && session.user.id === post.author.id;
+  const isOwnPost =
+    session?.user?.id && post?.author?.id && session.user.id === post.author.id;
 
-  // Loading State Skeleton
   if (loading) {
     return (
       <div className="bg-[#0b1326] text-[#dae2fd] min-h-screen flex flex-col justify-between">
@@ -154,7 +177,6 @@ export default function BlogPage({
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 relative">
           {/* Main Content Column */}
           <div className="lg:col-span-8 xl:col-span-9 max-w-3xl mx-auto w-full">
-            
             {/* Header Section */}
             <motion.header
               id="article-header"
@@ -287,7 +309,11 @@ export default function BlogPage({
                           : "bg-blue-600 text-white hover:bg-blue-500 shadow-lg shadow-blue-500/20"
                       }`}
                     >
-                      {followLoading ? "Loading..." : isFollowing ? "Following" : "Follow"}
+                      {followLoading
+                        ? "Loading..."
+                        : isFollowing
+                          ? "Following"
+                          : "Follow"}
                     </button>
                   )}
                 </div>
@@ -315,7 +341,6 @@ export default function BlogPage({
                 </div>
               </div>
             </div>
-
           </div>
 
           {/* Table of Contents - Desktop Sidebar (Sticky) */}
@@ -374,7 +399,11 @@ export default function BlogPage({
               </h3>
 
               <p className="text-sm text-slate-400 mb-6 leading-relaxed">
-                You need an account to follow <span className="text-slate-200 font-semibold">{post.author?.name}</span> and get notified when they publish new stories.
+                You need an account to follow{" "}
+                <span className="text-slate-200 font-semibold">
+                  {post.author?.name}
+                </span>{" "}
+                and get notified when they publish new stories.
               </p>
 
               <div className="flex flex-col gap-3">
