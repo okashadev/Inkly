@@ -9,6 +9,16 @@ import Footer from "@/components/layout/guest/Footer";
 import { useSession } from "next-auth/react";
 import CTA from "@/components/home/CTA";
 
+interface CommentType {
+  id: string;
+  content: string;
+  createdAt: string;
+  author: {
+    name: string;
+    image: string | null;
+  };
+}
+
 interface PostData {
   id: string;
   title: string;
@@ -48,6 +58,23 @@ export default function BlogPage({
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
 
+  const [isLiked, setIsLiked] = useState(false);
+  const [likeCount, setLikeCount] = useState(0);
+  const [isSaved, setIsSaved] = useState(false);
+  const [commentInput, setCommentInput] = useState("");
+  const [comments, setComments] = useState<CommentType[]>([
+    {
+      id: "1",
+      content:
+        "Great article! Really enjoyed reading through your perspective on this topic.",
+      createdAt: new Date().toISOString(),
+      author: {
+        name: "Alex Johnson",
+        image: null,
+      },
+    },
+  ]);
+
   useEffect(() => {
     async function fetchPost() {
       try {
@@ -59,8 +86,13 @@ export default function BlogPage({
 
         if (data.success && data.post) {
           setPost(data.post);
+          setLikeCount(data.post._count?.likes ?? 0);
 
-         if (typeof data.isFollowing === "boolean") {
+          if (typeof data.isLiked === "boolean") {
+            setIsLiked(data.isLiked);
+          }
+
+          if (typeof data.isFollowing === "boolean") {
             setIsFollowing(data.isFollowing);
           }
         } else {
@@ -78,6 +110,23 @@ export default function BlogPage({
       fetchPost();
     }
   }, [id, session?.user?.id]);
+
+  useEffect(() => {
+    async function fetchComments() {
+      if (!id) return;
+      try {
+        const res = await fetch(`/api/post/comment?postId=${id}`);
+        const data = await res.json();
+        if (data.success) {
+          setComments(data.comments);
+        }
+      } catch (err) {
+        console.error("Failed to load comments:", err);
+      }
+    }
+
+    fetchComments();
+  }, [id]);
 
   const handleFollowClick = async () => {
     if (status === "unauthenticated") {
@@ -121,6 +170,99 @@ export default function BlogPage({
       } finally {
         setFollowLoading(false);
       }
+    }
+  };
+
+  const handleLikeClick = async () => {
+    if (status === "unauthenticated") {
+      setIsAuthModalOpen(true);
+      return;
+    }
+    if (!post?.id) return;
+
+    const previousIsLiked = isLiked;
+    const previousCount = likeCount;
+
+    setIsLiked(!isLiked);
+    setLikeCount((prev) => (isLiked ? prev - 1 : prev + 1));
+
+    try {
+      const res = await fetch("/api/post/likes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ postId: post.id }),
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        setIsLiked(data.isLiked);
+        setLikeCount(data.likesCount);
+      } else {
+        setIsLiked(previousIsLiked);
+        setLikeCount(previousCount);
+      }
+    } catch (err: any) {
+      console.error("Failed to toggle like:", err);
+      setIsLiked(previousIsLiked);
+      setLikeCount(previousCount);
+    }
+  };
+
+  const handleSaveClick = () => {
+    if (status === "unauthenticated") {
+      setIsAuthModalOpen(true);
+      return;
+    }
+    setIsSaved(!isSaved);
+  };
+
+  const handleShareClick = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: post?.title,
+          url: window.location.href,
+        });
+      } catch (e) {
+        console.log("Error sharing", e);
+      }
+    } else {
+      navigator.clipboard.writeText(window.location.href);
+      alert("Link copied to clipboard!");
+    }
+  };
+
+  const handleCommentSubmit = async (e: React.SyntheticEvent) => {
+    e.preventDefault();
+
+    if (status === "unauthenticated") {
+      setIsAuthModalOpen(true);
+      return;
+    }
+
+    if (!commentInput.trim() || !post?.id) return;
+
+    try {
+      const res = await fetch("/api/post/comment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          postId: post.id,
+          content: commentInput,
+        }),
+      });
+
+      const data = await res.json();
+
+      console.log(data);
+
+      if (data.success) {
+        setComments((prev) => [data.comment, ...prev]);
+        setCommentInput("");
+      }
+    } catch (err) {
+      console.error("Failed to post comment:", err);
     }
   };
 
@@ -272,6 +414,104 @@ export default function BlogPage({
               dangerouslySetInnerHTML={{ __html: post.content }}
             />
 
+            <div className="my-10 py-4 px-6 bg-[#131b2e]/60 border border-white/10 rounded-2xl flex items-center justify-between gap-4 backdrop-blur-md">
+              <div className="flex items-center gap-4 sm:gap-6">
+                {/* Like Button */}
+                <button
+                  onClick={handleLikeClick}
+                  className={`flex items-center gap-2 text-sm font-semibold transition active:scale-95 ${
+                    isLiked
+                      ? "text-rose-500"
+                      : "text-slate-400 hover:text-white"
+                  }`}
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill={isLiked ? "currentColor" : "none"}
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="w-5 h-5"
+                  >
+                    <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
+                  </svg>
+                  <span>{likeCount}</span>
+                </button>
+
+                {/* Scroll to Comment Button */}
+                <a
+                  href="#comments-section"
+                  className="flex items-center gap-2 text-sm font-semibold text-slate-400 hover:text-white transition"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="w-5 h-5"
+                  >
+                    <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" />
+                  </svg>
+                  <span>{comments.length}</span>
+                </a>
+              </div>
+
+              <div className="flex items-center gap-4 sm:gap-6">
+                {/* Save / Bookmark Button */}
+                <button
+                  onClick={handleSaveClick}
+                  className={`p-2 rounded-xl border border-white/5 transition active:scale-95 ${
+                    isSaved
+                      ? "text-blue-400 bg-blue-500/10 border-blue-500/20"
+                      : "text-slate-400 hover:text-white bg-slate-800/40"
+                  }`}
+                  title="Bookmark"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill={isSaved ? "currentColor" : "none"}
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="w-5 h-5"
+                  >
+                    <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z" />
+                  </svg>
+                </button>
+
+                {/* Share Button */}
+                <button
+                  onClick={handleShareClick}
+                  className="p-2 text-slate-400 hover:text-white bg-slate-800/40 border border-white/5 rounded-xl transition active:scale-95"
+                  title="Share"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="w-5 h-5"
+                  >
+                    <circle cx="18" cy="5" r="3" />
+                    <circle cx="6" cy="12" r="3" />
+                    <circle cx="18" cy="19" r="3" />
+                    <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+                    <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
             {/* Author Bio Section */}
             <div
               id="author-bio"
@@ -341,6 +581,89 @@ export default function BlogPage({
                 </div>
               </div>
             </div>
+            <section id="comments-section" className="mt-16 space-y-8">
+              <h3 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
+                Comments ({comments.length})
+              </h3>
+
+              {/* Comment Input Box */}
+              <form
+                onSubmit={handleCommentSubmit}
+                className="p-5 bg-[#131b2e]/80 border border-white/10 rounded-2xl space-y-4 shadow-xl"
+              >
+                <textarea
+                  value={commentInput}
+                  onChange={(e) => setCommentInput(e.target.value)}
+                  placeholder={
+                    status === "authenticated"
+                      ? "What are your thoughts?"
+                      : "Log in to join the conversation..."
+                  }
+                  rows={3}
+                  className="w-full bg-[#0b1326] text-white border border-white/10 rounded-xl p-4 text-sm focus:outline-none focus:border-blue-500 transition resize-none placeholder:text-slate-500"
+                />
+                <div className="flex justify-end">
+                  <button
+                    type="submit"
+                    disabled={!commentInput.trim()}
+                    className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:hover:bg-blue-600 text-white font-semibold text-xs rounded-xl transition duration-200"
+                  >
+                    Post Comment
+                  </button>
+                </div>
+              </form>
+
+              {/* Comment List */}
+              <div className="space-y-4">
+                {comments.length === 0 ? (
+                  <p className="text-slate-500 text-sm text-center py-6">
+                    No comments yet. Be the first to share your thoughts!
+                  </p>
+                ) : (
+                  comments.map((comment) => (
+                    <div
+                      key={comment.id}
+                      className="p-5 bg-[#131b2e]/40 border border-white/5 rounded-2xl space-y-3"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-full overflow-hidden bg-slate-800 border border-white/10 relative shrink-0">
+                          {comment.author.image ? (
+                            <Image
+                              src={comment.author.image}
+                              alt={comment.author.name}
+                              fill
+                              className="object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-blue-400 font-bold text-xs">
+                              {comment.author.name[0]?.toUpperCase()}
+                            </div>
+                          )}
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-white">
+                            {comment.author.name}
+                          </p>
+                          <p className="text-[10px] text-slate-500">
+                            {new Date(comment.createdAt).toLocaleDateString(
+                              "en-US",
+                              {
+                                month: "short",
+                                day: "numeric",
+                                year: "numeric",
+                              },
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                      <p className="text-sm text-slate-300/90 leading-relaxed pl-12">
+                        {comment.content}
+                      </p>
+                    </div>
+                  ))
+                )}
+              </div>
+            </section>
           </div>
 
           {/* Table of Contents - Desktop Sidebar (Sticky) */}

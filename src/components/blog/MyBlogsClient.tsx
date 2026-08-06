@@ -283,6 +283,8 @@ export default function MyBlogsClient() {
                       src={post.coverImage}
                       alt={post.title}
                       fill
+                      priority
+                      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 75vw, 800px"
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     />
                   ) : (

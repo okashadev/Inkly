@@ -31,6 +31,13 @@ export async function GET(request: Request) {
           },
         },
         category: true,
+        comments: true,
+        _count: {
+          select: {
+            likes: true,
+            comments: true,
+          },
+        },
       },
     });
 
@@ -45,13 +52,26 @@ export async function GET(request: Request) {
 
     if (currentUserId && post.author?.id) {
       const followRecord = await db.follow.findFirst({
-        where:{
+        where: {
           followerId: currentUserId,
           followingId: post.author.id,
-        }
+        },
       });
 
       isFollowing = !!followRecord;
+    }
+
+    let isLiked = false;
+
+    if (currentUserId && post.author?.id) {
+      const likesRecord = await db.like.findFirst({
+        where:{
+          userId: currentUserId,
+          postId: post.id,
+        },
+      });
+
+      isLiked = !!likesRecord;
     }
 
     return NextResponse.json(
@@ -59,6 +79,7 @@ export async function GET(request: Request) {
         success: true,
         post,
         isFollowing,
+        isLiked,
       },
       { status: 200 },
     );
