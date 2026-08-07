@@ -70,7 +70,7 @@ export function TopNav({ user }: { user: any }) {
             aria-label="Open profile menu"
           >
             <Image
-              src="/images/avatar.jpg"
+              src={user?.image || "/images/userImage.webp"}
               alt="Alex's avatar"
               width={40}
               height={40}

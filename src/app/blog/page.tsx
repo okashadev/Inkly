@@ -19,7 +19,6 @@ interface PostAuthor {
 
 interface PostCount {
   likes: number;
-  comments: number;
 }
 
 interface Post {
@@ -27,7 +26,10 @@ interface Post {
   title: string;
   content: string;
   description?: string;
-  category?: string;
+  views?: number;
+  category?: {
+    name: string;
+  };
   coverImage?: string | null;
   createdAt: string;
   author: PostAuthor;
@@ -152,7 +154,7 @@ export default function BlogsPage() {
                   <div className="space-y-4">
                     <div className="flex items-center gap-3">
                       <span className="px-3 py-1 bg-blue-500/20 text-blue-300 rounded-full text-xs font-semibold tracking-wide uppercase border border-blue-500/30">
-                        {featuredPost.category || "Featured"}
+                        {featuredPost.category?.name || "Featured"}
                       </span>
                       <span className="text-xs text-slate-400">
                         Top Liked Story 🔥
@@ -190,17 +192,22 @@ export default function BlogsPage() {
                       </span>
                     </div>
 
-                    <span>
-                      {new Date(featuredPost.createdAt).toLocaleDateString(
-                        "en-US",
-                        {
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                        },
-                      )}{" "}
-                      • ❤️ {featuredPost._count.likes}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span>
+                        {new Date(featuredPost.createdAt).toLocaleDateString(
+                          "en-US",
+                          {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                          },
+                        )}
+                      </span>
+                      <span>•</span>
+                      <span>❤️ {featuredPost._count.likes}</span>
+                      <span>•</span>
+                      <span>👁️ {featuredPost.views}</span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -241,7 +248,7 @@ export default function BlogsPage() {
                     )}
                     <div className="absolute top-4 left-4">
                       <span className="px-3 py-1 bg-[#0b1326]/80 backdrop-blur-md text-blue-300 rounded-full text-xs font-medium border border-white/10">
-                        {post.category || "General"}
+                        {post.category?.name || "General"}
                       </span>
                     </div>
                   </Link>
@@ -260,7 +267,7 @@ export default function BlogsPage() {
                         </span>
                         <div className="flex gap-2">
                           <span>❤️ {post._count.likes}</span>
-                          <span>💬 {post._count.comments}</span>
+                          <span>👁️ {post.views}</span>
                         </div>
                       </div>
 

@@ -112,6 +112,36 @@ export default function BlogPage({
   }, [id, session?.user?.id]);
 
   useEffect(() => {
+  if (!id) return;
+
+  async function incrementView() {
+    const viewedKey = `viewed_post_${id}`;
+    const hasVieweded = sessionStorage.getItem(viewedKey);
+
+    if (!hasVieweded) {
+      try {
+        const res = await fetch("/api/post/views", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ postId: id }),
+        });
+
+        const data = await res.json();
+
+        if (data.success) {
+          sessionStorage.setItem(viewedKey, "true");
+          setPost((prev) => (prev ? { ...prev, views: data.views } : prev));
+        }
+      } catch (err) {
+        console.error("View count update failed:", err);
+      }
+    }
+  }
+
+  incrementView();
+}, [id]);
+
+  useEffect(() => {
     async function fetchComments() {
       if (!id) return;
       try {

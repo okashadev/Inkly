@@ -197,7 +197,7 @@ export default function Navbar() {
                 aria-label="Open profile menu"
               >
                 <Image
-                  src="/images/avatar.jpg"
+                  src={session?.user?.image || "/images/userImage.webp"}
                   alt="Alex's avatar"
                   width={40}
                   height={40}

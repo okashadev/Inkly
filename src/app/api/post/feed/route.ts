@@ -24,6 +24,11 @@ export async function GET(request: Request) {
         author: {
           select: { id: true, name: true, image: true, username: true },
         },
+        category: {
+          select: {
+            name: true,
+          },
+        },
         _count: { select: { likes: true, comments: true } },
       },
     });
@@ -40,6 +45,11 @@ export async function GET(request: Request) {
         include: {
           author: {
             select: { id: true, name: true, image: true, username: true },
+          },
+          category: {
+            select: {
+              name: true,
+            },
           },
           _count: { select: { likes: true, comments: true } },
         },
@@ -68,6 +78,11 @@ export async function GET(request: Request) {
         include: {
           author: {
             select: { id: true, name: true, image: true, username: true },
+          },
+          category: {
+            select: {
+              name: true,
+            },
           },
           _count: { select: { likes: true, comments: true } },
         },
@@ -98,6 +113,11 @@ export async function GET(request: Request) {
         author: {
           select: { id: true, name: true, image: true, username: true },
         },
+        category: {
+          select: {
+            name: true,
+          },
+        },
         _count: { select: { likes: true, comments: true } },
       },
     });
@@ -115,6 +135,11 @@ export async function GET(request: Request) {
       include: {
         author: {
           select: { id: true, name: true, image: true, username: true },
+        },
+        category: {
+          select: {
+            name: true,
+          },
         },
         _count: { select: { likes: true, comments: true } },
       },
