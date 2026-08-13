@@ -1,12 +1,32 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { useState } from "react";
 import Link from "next/link";
 import Navbar from "@/components/layout/guest/Navbar";
 import Footer from "@/components/layout/guest/Footer";
+import {
+  Search,
+  UserPlus,
+  BookOpen,
+  Users,
+  Sparkles,
+  Loader2,
+} from "lucide-react";
 
-const container = {
+interface Author {
+  id: string;
+  name: string;
+  username: string;
+  image?: string | null;
+  bio?: string | null;
+  _count?: {
+    posts: number;
+    followers: number;
+  };
+}
+
+const containerVariants = {
   hidden: { opacity: 0 },
   show: {
     opacity: 1,
@@ -16,202 +36,174 @@ const container = {
   },
 };
 
-const item = {
+const itemVariants = {
   hidden: { opacity: 0, y: 20 },
   show: { opacity: 1, y: 0 },
 };
 
 export default function AuthorsPage() {
   const [search, setSearch] = useState("");
+  const [authors, setAuthors] = useState<Author[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchAuthors = async () => {
+      setIsLoading(true);
+      try {
+        const res = await fetch(
+          `/api/authors/search?q=${encodeURIComponent(search)}`,
+        );
+        if (res.ok) {
+          const data = await res.json();
+          setAuthors(data);
+        }
+      } catch (error) {
+        console.error("Failed to fetch authors:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    const timer = setTimeout(() => {
+      fetchAuthors();
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [search]);
 
   return (
-    <>
-    <Navbar />
-      <main className="pt-32 pb-24 px-6 md:px-12 max-w-360 mx-auto text-[#dae2fd]">
-        {/* HEADER */}
+    <div className="min-h-screen bg-[#060e20] text-[#dae2fd] flex flex-col justify-between">
+      <Navbar />
+
+      <main className="pt-32 pb-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full">
+        {/* HERO / SEARCH HEADER */}
         <motion.header
-          initial={{ opacity: 0, y: 30 }}
+          initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="text-center mb-20"
+          transition={{ duration: 0.5 }}
+          className="text-center max-w-3xl mx-auto mb-16"
         >
-          <h1 className="text-5xl md:text-7xl font-extrabold tracking-tighter mb-6">
-            Discover Authors
+          <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-blue-500/10 border border-blue-500/20 text-blue-400 mb-4">
+            <Sparkles className="w-3.5 h-3.5" />
+            Community Creators
+          </span>
+
+          <h1 className="text-4xl sm:text-6xl font-extrabold tracking-tight text-white mb-4">
+            Discover Tech Authors
           </h1>
 
-          <p className="text-lg text-[#c2c6d6] max-w-2xl mx-auto mb-10">
-            Explore top writers, engineers, and creators shaping modern web
-            content.
+          <p className="text-slate-400 text-base sm:text-lg mb-8">
+            Explore writers, engineers, and creators sharing insights on
+            software, design, and architecture.
           </p>
 
-          {/* SEARCH */}
-          <div className="relative max-w-xl mx-auto mb-8">
-            <div className="relative flex items-center bg-[#171f33] rounded-full px-6 py-4 border border-[#424754]">
-              <span className="text-[#8c909f]">🔍</span>
+          <div className="relative max-w-xl mx-auto">
+            <div className="relative flex items-center bg-[#131c35] rounded-2xl px-6 py-5 min-h-15 border border-white/10 focus-within:border-blue-500 transition-all shadow-xl">
+              <Search className="w-6 h-6 text-slate-400 shrink-0" />
               <input
+                type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search by name, expertise..."
-                className="bg-transparent w-full px-4 outline-none text-white"
+                placeholder="Search authors"
+                className="bg-transparent w-full px-4 text-base text-white placeholder-slate-500 outline-none"
               />
+              {isLoading && (
+                <Loader2 className="w-5 h-5 text-blue-400 animate-spin mr-2 shrink-0" />
+              )}
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch("")}
+                  className="px-3 py-1 text-xs font-medium bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white rounded-lg transition shrink-0"
+                >
+                  Clear
+                </button>
+              )}
             </div>
-          </div>
-
-          {/* FILTERS */}
-          <div className="flex flex-wrap justify-center gap-3">
-            {["All", "Trending", "Top Rated", "New Writers"].map((tab) => (
-              <button
-                key={tab}
-                className="px-5 py-2 rounded-full text-sm font-medium bg-[#3e495d] hover:bg-[#4d8eff] transition"
-              >
-                {tab}
-              </button>
-            ))}
           </div>
         </motion.header>
 
-        {/* TOP AUTHORS */}
-        <section className="mb-24">
-          <h2 className="text-3xl font-bold mb-10 flex items-center gap-3">
-            Top Authors This Week
-          </h2>
-
-          <motion.div
-            variants={container}
-            initial="hidden"
-            animate="show"
-            className="grid grid-cols-1 md:grid-cols-3 gap-8"
-          >
-            {[
-              {
-                name: "Alex River",
-                username: "@ariver_dev",
-                id: 1,
-                posts: 142,
-                followers: "12.4k",
-                img: "https://lh3.googleusercontent.com/aida-public/AB6AXuDDvbT40wjhHdnyJU_mGZMquJ2lDrPQ8whOgBjgzC-cwnagLSZTc2NeIT_xQq18st8vpbUvJRJto61uYtdJ79RansYyBXxNLSzTy5hIi-g7KvyzyU35sWdaWNPXa4EiTD8ujmuKSD-Xaszmrg5sZiLlpb70_om7oHNqeUFpwFuQPWj-GI1vBXY9PArPJjotxwZ5UZ-gcbI95pds8EZ29K9shTpImDqVcCGFsMwLb671rtJlv40JV6piee3zzvbvGNqerQ3g4Lu-veFU",
-              },
-              {
-                name: "Sarah Chen",
-                username: "@schen_design",
-                id: 2,
-                posts: 89,
-                followers: "45.2k",
-                img: "https://lh3.googleusercontent.com/aida-public/AB6AXuDL1PtlWplXJkXNwRSQCWKtXGuqJTxYGpPnybCpVZGfCm9LweziwgXXqKX1weQvm526m0ztRBoi3HnacWko3AXb2zE3oNXGlmixutxvMSKqNhbP1eDHgTPG85EDaLUlcSoBia3KmAFF04679dOkzaV0EE85JvIVN17SoFycrhSJs-Chf4BjhpwON60ejRLZQg-S5nAKo6fski8SSTjTDH_FVUiYs-H-NsrCwCv6y6pZ5iryFGcnKIeQv51CtDb8_cwLjQ_suaOUTWwV",
-              },
-              {
-                name: "Jordan Watts",
-                id: 3,
-                username: "@jwatts_arch",
-                posts: 214,
-                followers: "8.9k",
-                img: "https://lh3.googleusercontent.com/aida-public/AB6AXuDGFnbvSXnk_0X0M48MZhW72xA9I87geENj7dMSgMSCJmvW4EkcRK3T6I7N_OyT_yHJ6MjODPKdsIfSonlTSADcJHrrHSgvFpsYxqb6g97uaQTd2kE31rPUeDZTeDsjVq_nOV0n5mo4wW5gxMcupeRaExnujhTL9Q4GOOjYgvBZ3E1Z9rhILtAL0KAI0fwASXTqgfymMZ_RkxCKU6pGwlLExV4QpQAOe0y9ZwiaDzmRMaM-113GmLkaZvKbncgXkNj9hL8cQJCSCjXscK",
-              },
-            ].map((a, i) => (
-              <motion.div
-                key={i}
-                variants={item}
-                whileHover={{ scale: 1.03 }}
-                className="bg-[#171f33] p-8 rounded-xl text-center border border-[#2d3449]"
-              >
-                <img
-                  src={a.img}
-                  className="w-24 h-24 mx-auto rounded-full mb-4 object-cover"
-                />
-                <h3 className="text-xl font-bold">{a.name}</h3>
-                <p className="text-[#4d8eff] text-sm mb-4">{a.username}</p>
-
-                <div className="flex justify-center gap-10 mb-6 text-sm">
-                  <div>
-                    <p className="text-[#8c909f]">Posts</p>
-                    <p className="font-bold">{a.posts}</p>
-                  </div>
-                  <div>
-                    <p className="text-[#8c909f]">Followers</p>
-                    <p className="font-bold">{a.followers}</p>
-                  </div>
-                </div>
-
-                <Link
-                  href={`/authors/profile/${a.id}`}
-                  className="block bg-[#4d8eff] text-black font-bold py-3 rounded-full"
+        <section>
+          {isLoading && authors.length === 0 ? (
+            <div className="flex justify-center items-center py-20 text-slate-400">
+              <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+            </div>
+          ) : authors.length === 0 ? (
+            <div className="text-center py-16 bg-[#0b132b]/40 rounded-2xl border border-white/5">
+              <p className="text-slate-400 text-base">
+                {search
+                  ? `No authors found matching "${search}"`
+                  : "No authors available."}
+              </p>
+            </div>
+          ) : (
+            <motion.div
+              variants={containerVariants}
+              initial="hidden"
+              animate="show"
+              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+            >
+              {authors.map((author) => (
+                <motion.div
+                  key={author.id}
+                  variants={itemVariants}
+                  whileHover={{ y: -4 }}
+                  className="bg-[#0b132b] p-6 rounded-2xl border border-white/10 flex flex-col justify-between hover:border-blue-500/40 transition-all duration-200 shadow-xl"
                 >
-                  View Profile
-                </Link>
-              </motion.div>
-            ))}
-          </motion.div>
-        </section>
-
-        {/* GRID AUTHORS */}
-        <section className="grid grid-cols-1 lg:grid-cols-12 gap-12">
-          {/* LEFT GRID */}
-          <div className="lg:col-span-8 grid md:grid-cols-2 gap-6">
-            {[
-              "David Miller",
-              "Elena Rodriguez",
-              "Marcus Thorne",
-              "Julia Vane",
-            ].map((name, i) => (
-              <motion.div
-                key={i}
-                whileHover={{ y: -6 }}
-                className="bg-[#131b2e] p-6 rounded-xl border border-[#2d3449]"
-              >
-                <div className="flex items-center gap-4 mb-4">
-                  <img
-                    src="https://i.pravatar.cc/100"
-                    className="w-14 h-14 rounded-full"
-                  />
                   <div>
-                    <h4 className="font-bold">{name}</h4>
-                    <p className="text-xs text-[#8c909f]">Creator</p>
-                  </div>
-                </div>
-
-                <p className="text-sm text-[#c2c6d6] mb-4">
-                  Writing about modern systems, UI and backend architecture.
-                </p>
-
-                <Link
-                  href={`/authors/profile/4`}
-                  className="text-[#4d8eff] text-sm font-bold"
-                >
-                  View Profile →
-                </Link>
-              </motion.div>
-            ))}
-          </div>
-
-          {/* RIGHT SIDEBAR */}
-          <aside className="lg:col-span-4 bg-[#060e20] p-8 rounded-xl border border-[#2d3449]">
-            <h3 className="text-xl font-bold mb-8">Top Creators</h3>
-
-            <ul className="space-y-5">
-              {[1, 2, 3, 4].map((i) => (
-                <li
-                  key={i}
-                  className="flex items-center justify-between hover:text-[#4d8eff] cursor-pointer"
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="text-[#8c909f]">{i}</span>
-                    <img
-                      src="https://i.pravatar.cc/40"
-                      className="w-10 h-10 rounded-full"
-                    />
-                    <div>
-                      <p className="text-sm font-bold">Creator {i}</p>
-                      <p className="text-xs text-[#8c909f]">followers</p>
+                    <div className="flex items-center gap-4 mb-4">
+                      <img
+                        src={author.image || "/images/userImage.webp"}
+                        alt={author.name}
+                        className="w-16 h-16 rounded-full object-cover border-2 border-blue-500/20 bg-[#131c35]"
+                      />
+                      <div>
+                        <h3 className="text-lg font-bold text-white flex items-center gap-1.5">
+                          {author.name}
+                        </h3>
+                        <p className="text-xs text-blue-400 font-medium">
+                          @{author.username}
+                        </p>
+                      </div>
                     </div>
                   </div>
-                  <span>📈</span>
-                </li>
+
+                  <div className="pt-4 border-t border-white/5">
+                    <div className="grid grid-cols-2 gap-2 mb-5 text-center bg-[#131c35]/50 py-2.5 rounded-xl border border-white/5">
+                      <div>
+                        <span className="text-[10px] text-slate-400 uppercase tracking-wider flex items-center justify-center gap-1">
+                          <BookOpen className="w-3 h-3" /> Posts
+                        </span>
+                        <span className="text-sm font-bold text-white">
+                          {author._count?.posts ?? 0}
+                        </span>
+                      </div>
+                      <div className="border-l border-white/10">
+                        <span className="text-[10px] text-slate-400 uppercase tracking-wider flex items-center justify-center gap-1">
+                          <Users className="w-3 h-3" /> Followers
+                        </span>
+                        <span className="text-sm font-bold text-white">
+                          {author._count?.followers ?? 0}
+                        </span>
+                      </div>
+                    </div>
+
+                    <Link
+                      href={`/authors/profile/${author.id}`}
+                      className="w-full inline-flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2.5 px-4 rounded-xl text-xs transition active:scale-95 shadow-md shadow-blue-600/20"
+                    >
+                      <UserPlus className="w-4 h-4" />
+                      View Profile
+                    </Link>
+                  </div>
+                </motion.div>
               ))}
-            </ul>
-          </aside>
+            </motion.div>
+          )}
         </section>
       </main>
+
       <Footer />
-    </>
+    </div>
   );
 }
