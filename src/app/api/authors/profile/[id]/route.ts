@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { auth } from "@/auth";
 
 export async function GET(
   request: Request,
@@ -14,6 +15,9 @@ export async function GET(
         { status: 400 },
       );
     }
+
+    const session = await auth();
+    const currentUserId = session?.user?.id;
 
     const author = await db.user.findUnique({
       where: { id },
@@ -61,10 +65,24 @@ export async function GET(
       return NextResponse.json({ error: "Author not found" }, { status: 404 });
     }
 
+    let isFollowing = false;
+
+    if (currentUserId && author?.id) {
+      const followRecord = await db.follow.findFirst({
+        where: {
+          followerId: currentUserId,
+          followingId: author?.id,
+        },
+      });
+
+      isFollowing = !!followRecord;
+    }
+
     return NextResponse.json(
       {
         success: true,
         author: author,
+        isFollowing
       },
       { status: 200 },
     );

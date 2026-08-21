@@ -1,7 +1,7 @@
 "use client";
 
-import Footer from "@/components/layout/guest/Footer";
-import Navbar from "@/components/layout/guest/Navbar";
+import Footer from "@/components/layout/Footer";
+import Navbar from "@/components/layout/Navbar";
 import { motion } from "framer-motion";
 
 const posts = [

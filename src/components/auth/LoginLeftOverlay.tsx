@@ -1,5 +1,6 @@
 "use client";
 import { motion } from "framer-motion";
+import Link from "next/link";
 
 import React from "react";
 
@@ -26,7 +27,7 @@ export const LoginLeftOverlay = () => {
         className="hidden lg:flex flex-col justify-between p-12 bg-linear-to-br from-[#0F172A] to-[#1E293B] text-white"
       >
         <motion.div variants={item} className="text-xl font-semibold">
-          Inkly
+          <Link href={`/`}>Inkly</Link>
         </motion.div>
 
         <div>

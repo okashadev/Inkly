@@ -3,8 +3,8 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
-import Navbar from "@/components/layout/guest/Navbar";
-import Footer from "@/components/layout/guest/Footer";
+import Navbar from "@/components/layout/Navbar";
+import Footer from "@/components/layout/Footer";
 import {
   Search,
   UserPlus,
@@ -192,7 +192,6 @@ export default function AuthorsPage() {
                       href={`/authors/profile/${author.id}`}
                       className="w-full inline-flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2.5 px-4 rounded-xl text-xs transition active:scale-95 shadow-md shadow-blue-600/20"
                     >
-                      <UserPlus className="w-4 h-4" />
                       View Profile
                     </Link>
                   </div>

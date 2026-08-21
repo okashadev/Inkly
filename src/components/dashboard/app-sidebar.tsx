@@ -44,7 +44,7 @@ export function AppSidebar() {
       aria-label="Main navigation"
     >
       <div className="mb-12 px-4">
-        <Link href='/' className="font-display text-xl font-extrabold tracking-tight text-primary">
+        <Link href='/' className="font-display text-xl font-extrabold tracking-tight text-white">
           Inkly
         </Link>
         <p className="mt-1 text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground/70">

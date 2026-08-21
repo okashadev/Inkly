@@ -4,11 +4,12 @@ import { motion } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
-import Navbar from "@/components/layout/guest/Navbar";
-import Footer from "@/components/layout/guest/Footer";
+import Navbar from "@/components/layout/Navbar";
+import Footer from "@/components/layout/Footer";
 import CTA from "@/components/home/CTA";
 import Spinner from "@/components/home/Spinner";
 import { useEffect, useState } from "react";
+import { Heart, Eye, MessageSquare, Loader2 } from "lucide-react";
 
 interface PostAuthor {
   id: string;
@@ -19,6 +20,7 @@ interface PostAuthor {
 
 interface PostCount {
   likes: number;
+  comments: number;
 }
 
 interface Post {
@@ -40,9 +42,7 @@ const containerVariants = {
   hidden: { opacity: 0 },
   show: {
     opacity: 1,
-    transition: {
-      staggerChildren: 0.1,
-    },
+    transition: { staggerChildren: 0.1 },
   },
 };
 
@@ -60,18 +60,28 @@ export default function BlogsPage() {
   const [featuredPost, setFeaturedPost] = useState<Post | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [loadingMore, setLoadingMore] = useState<boolean>(false);
+  const [hasMore, setHasMore] = useState<boolean>(true);
 
   useEffect(() => {
-    const fetchFeed = async () => {
+    const fetchInitialFeed = async () => {
       try {
-        const res = await fetch("/api/post/feed");
+        const res = await fetch("/api/post/feed", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ excludeIds: [], limit: 6 }),
+        });
         const data = await res.json();
-
-        console.log(data);
 
         if (data.success) {
           setFeaturedPost(data.featuredPost || null);
           setPosts(data.posts || []);
+          // if (
+          //   data.hasMore === false ||
+          //   (data.posts && data.posts.length === 0)
+          // ) {
+          //   setHasMore(false);
+          // }
         }
       } catch (err) {
         console.error("Failed to fetch feed posts:", err);
@@ -80,10 +90,51 @@ export default function BlogsPage() {
       }
     };
 
-    fetchFeed();
+    fetchInitialFeed();
   }, []);
 
-  if (status === "loading") {
+  const handleLoadMore = async () => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+
+    const currentIds = posts.map((p) => p.id);
+    if (featuredPost?.id) {
+      currentIds.push(featuredPost.id);
+    }
+
+    try {
+      const res = await fetch("/api/post/feed", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ excludeIds: currentIds, limit: 6 }),
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        const fetchedPosts: Post[] = data.posts || [];
+
+        if (fetchedPosts.length === 0 || data.hasMore === false) {
+          setHasMore(false);
+        }
+
+        setPosts((prevPosts) => {
+          const existingIds = new Set(prevPosts.map((p) => p.id));
+          const uniqueNewPosts = fetchedPosts.filter(
+            (p) => !existingIds.has(p.id),
+          );
+          return [...prevPosts, ...uniqueNewPosts];
+        });
+      } else {
+        setHasMore(false);
+      }
+    } catch (err) {
+      console.error("Failed to load more posts:", err);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
+  if (status === "loading" || loading) {
     return (
       <div className="min-h-screen bg-[#0b1326] flex items-center justify-center">
         <div className="text-xl font-bold text-white font-manrope flex justify-center items-center gap-4">
@@ -147,7 +198,7 @@ export default function BlogsPage() {
                       No Cover Image
                     </span>
                   )}
-                  <div className="absolute inset-0 bg-linear-to-t from-[#0b1326]/60 via-transparent to-transparent lg:hidden" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#0b1326]/60 via-transparent to-transparent lg:hidden" />
                 </div>
 
                 <div className="lg:col-span-5 p-6 sm:p-10 flex flex-col justify-between space-y-6">
@@ -192,7 +243,7 @@ export default function BlogsPage() {
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-3">
                       <span>
                         {new Date(featuredPost.createdAt).toLocaleDateString(
                           "en-US",
@@ -204,9 +255,18 @@ export default function BlogsPage() {
                         )}
                       </span>
                       <span>•</span>
-                      <span>❤️ {featuredPost._count.likes}</span>
-                      <span>•</span>
-                      <span>👁️ {featuredPost.views}</span>
+                      <span className="flex items-center gap-1">
+                        <Heart className="w-3.5 h-3.5 text-rose-400 fill-rose-400/20" />
+                        {featuredPost._count.likes}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <MessageSquare className="w-3.5 h-3.5 text-blue-400" />
+                        {featuredPost._count.comments}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Eye className="w-3.5 h-3.5 text-slate-400" />
+                        {featuredPost.views || 0}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -265,9 +325,19 @@ export default function BlogsPage() {
                             },
                           )}
                         </span>
-                        <div className="flex gap-2">
-                          <span>❤️ {post._count.likes}</span>
-                          <span>👁️ {post.views}</span>
+                        <div className="flex items-center gap-2.5">
+                          <span className="flex items-center gap-1">
+                            <Heart className="w-3.5 h-3.5 text-rose-400 fill-rose-400/20" />
+                            {post._count.likes}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <MessageSquare className="w-3.5 h-3.5 text-blue-400" />
+                            {post._count.comments}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Eye className="w-3.5 h-3.5 text-slate-400" />
+                            {post.views || 0}
+                          </span>
                         </div>
                       </div>
 
@@ -302,14 +372,27 @@ export default function BlogsPage() {
             </div>
 
             {/* Load More Action Button */}
-            <motion.div
-              variants={fadeUpVariants}
-              className="flex justify-center pt-8"
-            >
-              <button className="px-8 py-3 bg-[#131b2e] hover:bg-slate-800 text-slate-200 border border-white/10 rounded-full text-xs font-semibold uppercase tracking-wider transition duration-200 active:scale-95 shadow-lg">
-                Load More Articles
-              </button>
-            </motion.div>
+            {hasMore && (
+              <motion.div
+                variants={fadeUpVariants}
+                className="flex justify-center pt-8"
+              >
+                <button
+                  onClick={handleLoadMore}
+                  disabled={loadingMore}
+                  className="px-8 py-3 bg-[#131b2e] hover:bg-slate-800 text-slate-200 border border-white/10 rounded-full text-xs font-semibold uppercase tracking-wider transition duration-200 active:scale-95 shadow-lg flex items-center gap-2 disabled:opacity-50 cursor-pointer"
+                >
+                  {loadingMore ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin text-blue-400" />
+                      Loading...
+                    </>
+                  ) : (
+                    "Load More Articles"
+                  )}
+                </button>
+              </motion.div>
+            )}
           </motion.section>
         ) : (
           <div className="text-center py-20 text-slate-400">

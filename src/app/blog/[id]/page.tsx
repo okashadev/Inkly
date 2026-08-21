@@ -4,10 +4,11 @@ import { use, useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
-import Navbar from "@/components/layout/guest/Navbar";
-import Footer from "@/components/layout/guest/Footer";
+import Navbar from "@/components/layout/Navbar";
+import Footer from "@/components/layout/Footer";
 import { useSession } from "next-auth/react";
 import CTA from "@/components/home/CTA";
+import { UserCheck, UserPlus } from "lucide-react";
 
 interface CommentType {
   id: string;
@@ -112,34 +113,34 @@ export default function BlogPage({
   }, [id, session?.user?.id]);
 
   useEffect(() => {
-  if (!id) return;
+    if (!id) return;
 
-  async function incrementView() {
-    const viewedKey = `viewed_post_${id}`;
-    const hasVieweded = sessionStorage.getItem(viewedKey);
+    async function incrementView() {
+      const viewedKey = `viewed_post_${id}`;
+      const hasVieweded = sessionStorage.getItem(viewedKey);
 
-    if (!hasVieweded) {
-      try {
-        const res = await fetch("/api/post/views", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ postId: id }),
-        });
+      if (!hasVieweded) {
+        try {
+          const res = await fetch("/api/post/views", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ postId: id }),
+          });
 
-        const data = await res.json();
+          const data = await res.json();
 
-        if (data.success) {
-          sessionStorage.setItem(viewedKey, "true");
-          setPost((prev) => (prev ? { ...prev, views: data.views } : prev));
+          if (data.success) {
+            sessionStorage.setItem(viewedKey, "true");
+            setPost((prev) => (prev ? { ...prev, views: data.views } : prev));
+          }
+        } catch (err) {
+          console.error("View count update failed:", err);
         }
-      } catch (err) {
-        console.error("View count update failed:", err);
       }
     }
-  }
 
-  incrementView();
-}, [id]);
+    incrementView();
+  }, [id]);
 
   useEffect(() => {
     async function fetchComments() {
@@ -195,7 +196,7 @@ export default function BlogPage({
             };
           });
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error("Follow action failed", err);
       } finally {
         setFollowLoading(false);
@@ -375,7 +376,10 @@ export default function BlogPage({
 
               {/* Author Info Bar */}
               <div className="flex items-center gap-4 py-4 border-y border-white/10">
-                <div className="w-11 h-11 rounded-full overflow-hidden bg-slate-800 border border-white/10 relative shrink-0">
+                <Link
+                  href={`/authors/profile/${post.author?.id}`}
+                  className="w-11 h-11 rounded-full overflow-hidden bg-slate-800 border border-white/10 relative shrink-0"
+                >
                   {post.author?.image ? (
                     <Image
                       src={post.author.image}
@@ -388,12 +392,15 @@ export default function BlogPage({
                       {post.author?.name?.[0]?.toUpperCase() || "A"}
                     </div>
                   )}
-                </div>
+                </Link>
 
                 <div className="flex-1">
-                  <p className="font-semibold text-white capitalize text-sm sm:text-base">
+                  <Link
+                    href={`/authors/profile/${post.author?.id}`}
+                    className="font-semibold text-white capitalize text-sm sm:text-base"
+                  >
                     {post.author?.name || "Anonymous Author"}
-                  </p>
+                  </Link>
                   <p className="text-xs text-slate-400">
                     {new Date(post.createdAt).toLocaleDateString("en-US", {
                       month: "short",
@@ -403,6 +410,35 @@ export default function BlogPage({
                     • {post.readingTime || 5} min read
                     {post.views > 0 && ` • ${post.views} views`}
                   </p>
+                </div>
+                <div>
+                  {!isOwnPost && (
+                    <button
+                      onClick={handleFollowClick}
+                      disabled={followLoading}
+                      className={`w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm transition-all shadow-md ${
+                        followLoading ? "opacity-70" : ""
+                      } ${
+                        isFollowing
+                          ? "bg-white/10 text-white border border-white/10 hover:bg-white/20"
+                          : "bg-blue-600 hover:bg-blue-500 text-white shadow-blue-600/30"
+                      }`}
+                    >
+                      {followLoading ? (
+                        "Loading..."
+                      ) : isFollowing ? (
+                        <>
+                          <UserCheck className="w-4 h-4" />
+                          Following
+                        </>
+                      ) : (
+                        <>
+                          <UserPlus className="w-4 h-4" />
+                          Follow
+                        </>
+                      )}
+                    </button>
+                  )}
                 </div>
               </div>
             </motion.header>
@@ -547,7 +583,10 @@ export default function BlogPage({
               id="author-bio"
               className="mt-16 p-6 sm:p-8 bg-[#131b2e]/80 border border-white/10 rounded-2xl flex flex-col sm:flex-row items-center sm:items-start gap-6 shadow-xl backdrop-blur-sm"
             >
-              <div className="w-20 h-20 rounded-full overflow-hidden bg-slate-800 border border-white/10 relative shrink-0">
+              <Link
+                href={`/authors/profile/${post.author?.id}`}
+                className="w-20 h-20 rounded-full overflow-hidden bg-slate-800 border border-white/10 relative shrink-0"
+              >
                 {post.author?.image ? (
                   <Image
                     src={post.author.image}
@@ -560,37 +599,49 @@ export default function BlogPage({
                     {post.author?.name?.[0]?.toUpperCase() || "A"}
                   </div>
                 )}
-              </div>
+              </Link>
 
               <div className="flex-1 text-center sm:text-left space-y-3 w-full">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
-                    <h3 className="text-lg sm:text-xl capitalize font-bold text-white">
+                    <Link
+                      href={`/authors/profile/${post.author?.id}`}
+                      className="text-lg sm:text-xl capitalize font-bold text-white"
+                    >
                       {post.author?.name || "Author"}
-                    </h3>
+                    </Link>
                   </div>
                   {!isOwnPost && (
                     <button
                       onClick={handleFollowClick}
                       disabled={followLoading}
-                      className={`w-full sm:w-auto px-5 py-2 text-xs font-semibold rounded-xl transition duration-200 active:scale-95 ${
+                      className={`w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm transition-all shadow-md ${
+                        followLoading ? "opacity-70" : ""
+                      } ${
                         isFollowing
-                          ? "bg-slate-800 text-slate-300 border border-white/10 hover:bg-slate-700"
-                          : "bg-blue-600 text-white hover:bg-blue-500 shadow-lg shadow-blue-500/20"
+                          ? "bg-white/10 text-white border border-white/10 hover:bg-white/20"
+                          : "bg-blue-600 hover:bg-blue-500 text-white shadow-blue-600/30"
                       }`}
                     >
-                      {followLoading
-                        ? "Loading..."
-                        : isFollowing
-                          ? "Following"
-                          : "Follow"}
+                      {followLoading ? (
+                        "Loading..."
+                      ) : isFollowing ? (
+                        <>
+                          <UserCheck className="w-4 h-4" />
+                          Following
+                        </>
+                      ) : (
+                        <>
+                          <UserPlus className="w-4 h-4" />
+                          Follow
+                        </>
+                      )}
                     </button>
                   )}
                 </div>
 
                 <p className="text-sm text-slate-400 leading-relaxed">
-                  {post.author?.bio ||
-                    "Writer and contributor at Inkly. Passionate about sharing ideas and insights."}
+                  {post.author?.bio || ""}
                 </p>
 
                 {/* Followers & Articles Stats */}

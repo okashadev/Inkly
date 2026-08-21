@@ -1,11 +1,11 @@
 "use client";
 
 import { use, useEffect, useMemo, useState } from "react";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
-import Navbar from "@/components/layout/guest/Navbar";
-import Footer from "@/components/layout/guest/Footer";
+import Navbar from "@/components/layout/Navbar";
+import Footer from "@/components/layout/Footer";
 import {
   UserPlus,
   UserCheck,
@@ -14,6 +14,7 @@ import {
   ArrowUpRight,
   Heart,
   Eye,
+  Edit3,
 } from "lucide-react";
 import Spinner from "@/components/home/Spinner";
 import { useSession } from "next-auth/react";
@@ -69,7 +70,10 @@ export default function AuthorProfilePage({
   const [isLoading, setIsLoading] = useState(true);
   const [isFollowing, setIsFollowing] = useState(false);
   const [activeFilter, setActiveFilter] = useState("ALL");
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [followLoading, setFollowLoading] = useState(false);
   const { data: session, status } = useSession();
+  const user_id = session?.user?.id;
 
   useEffect(() => {
     const fetchAuthor = async () => {
@@ -79,6 +83,8 @@ export default function AuthorProfilePage({
         if (res.ok) {
           const data = await res.json();
           setAuthor(data.author);
+          setIsFollowing(data.isFollowing);
+          console.log(data);
         }
       } catch (error: any) {
         console.error("Failed to fetch author:", error);
@@ -91,6 +97,48 @@ export default function AuthorProfilePage({
       fetchAuthor();
     }
   }, [id]);
+
+  const handleFollowClick = async () => {
+    if (status === "unauthenticated") {
+      setIsAuthModalOpen(true);
+      return;
+    }
+
+    if (status === "authenticated" && author?.id) {
+      try {
+        setFollowLoading(true);
+        const res = await fetch("/api/follow-request", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ authorId: author.id }),
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          setIsFollowing(data.isFollowing);
+
+          // Optimistically update follower count on local state
+          setAuthor((prev) => {
+            if (!prev) return prev;
+            const currentFollowers = prev._count?.followers ?? 0;
+            return {
+              ...prev,
+              _count: {
+                ...prev._count,
+                followers: data.isFollowing
+                  ? currentFollowers + 1
+                  : Math.max(0, currentFollowers - 1),
+              },
+            };
+          });
+        }
+      } catch (error: any) {
+        console.error("Follow action failed", error);
+      } finally {
+        setFollowLoading(false);
+      }
+    }
+  };
 
   const filteredPosts = useMemo(() => {
     if (!author?.posts) return [];
@@ -148,6 +196,8 @@ export default function AuthorProfilePage({
     );
   }
 
+  const isLoggedInUserProfile = id === user_id;
+
   return (
     <div className="min-h-screen bg-[#060e20] text-[#dae2fd] flex flex-col justify-between">
       <Navbar />
@@ -191,28 +241,45 @@ export default function AuthorProfilePage({
                     @{author.username}
                   </p>
                 </div>
-
-                <motion.button
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => setIsFollowing(!isFollowing)}
-                  className={`w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm transition-all shadow-md ${
-                    isFollowing
-                      ? "bg-white/10 text-white border border-white/10 hover:bg-white/20"
-                      : "bg-blue-600 hover:bg-blue-500 text-white shadow-blue-600/30"
-                  }`}
-                >
-                  {isFollowing ? (
-                    <>
-                      <UserCheck className="w-4 h-4" />
-                      Following
-                    </>
-                  ) : (
-                    <>
-                      <UserPlus className="w-4 h-4" />
-                      Follow
-                    </>
-                  )}
-                </motion.button>
+                {!isLoggedInUserProfile ? (
+                  <motion.button
+                    whileTap={{ scale: 0.95 }}
+                    disabled={followLoading}
+                    onClick={handleFollowClick}
+                    className={`w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm transition-all shadow-md ${
+                      followLoading ? "opacity-70 cursor-not-allowed" : ""
+                    } ${
+                      isFollowing
+                        ? "bg-white/10 text-white border border-white/10 hover:bg-white/20"
+                        : "bg-blue-600 hover:bg-blue-500 text-white shadow-blue-600/30"
+                    }`}
+                  >
+                    {isFollowing ? (
+                      <>
+                        <UserCheck className="w-4 h-4" />
+                        Following
+                      </>
+                    ) : (
+                      <>
+                        <UserPlus className="w-4 h-4" />
+                        Follow
+                      </>
+                    )}
+                  </motion.button>
+                ) : (
+                  <motion.div
+                    whileTap={{ scale: 0.95 }}
+                    className="w-full sm:w-auto"
+                  >
+                    <Link
+                      href="/user/profile"
+                      className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-white/10 hover:bg-white/15 text-white border border-white/15 hover:border-white/30 rounded-xl font-bold text-sm transition-all duration-200 shadow-md backdrop-blur-md group"
+                    >
+                      <Edit3 className="w-4 h-4 text-blue-400 group-hover:rotate-12 transition-transform duration-200" />
+                      Edit Profile
+                    </Link>
+                  </motion.div>
+                )}
               </div>
               {author.bio && (
                 <p className="text-slate-300 text-sm sm:text-base leading-relaxed max-w-3xl mb-8">
@@ -373,6 +440,57 @@ export default function AuthorProfilePage({
           )}
         </section>
       </main>
+
+      <AnimatePresence>
+        {isAuthModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-[#131b2e] border border-white/10 rounded-2xl p-6 sm:p-8 max-w-md w-full shadow-2xl relative text-center"
+            >
+              <button
+                onClick={() => setIsAuthModalOpen(false)}
+                className="absolute top-4 right-4 text-slate-400 hover:text-white transition"
+              >
+                ✕
+              </button>
+
+              <div className="w-12 h-12 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-4 text-xl">
+                👤
+              </div>
+
+              <h3 className="text-xl font-bold text-white mb-2">
+                Join Inkly to Follow
+              </h3>
+
+              <p className="text-sm text-slate-400 mb-6 leading-relaxed">
+                You need an account to follow{" "}
+                <span className="text-slate-200 font-semibold">
+                  {author?.name}
+                </span>{" "}
+                and get notified when they publish new Blogs.
+              </p>
+
+              <div className="flex flex-col gap-3">
+                <Link
+                  href="/login"
+                  className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-semibold text-sm transition duration-200"
+                >
+                  Log In
+                </Link>
+                <Link
+                  href="/register"
+                  className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-white/10 rounded-xl font-semibold text-sm transition duration-200"
+                >
+                  Create Account
+                </Link>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       <Footer />
     </div>

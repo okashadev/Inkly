@@ -5,8 +5,8 @@ import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import Navbar from "@/components/layout/guest/Navbar";
-import Footer from "@/components/layout/guest/Footer";
+import Navbar from "@/components/layout/Navbar";
+import Footer from "@/components/layout/Footer";
 import Spinner from "@/components/home/Spinner";
 import { 
   HiHeart, 

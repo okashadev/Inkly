@@ -2,160 +2,114 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { auth } from "@/auth";
 
-export async function GET(request: Request) {
+export async function POST(request: Request) {
   try {
+    const body = await request.json();
+    const limit = parseInt(body.limit || "6", 10);
+    const excludeIds: string[] = Array.isArray(body.excludeIds)
+      ? body.excludeIds
+      : [];
+    const isInitialLoad = excludeIds.length === 0;
+
     const session = await auth();
     const userId = session?.user?.id;
 
-    const featuredPost = await db.post.findFirst({
-      orderBy: [
-        {
-          likes: {
-            _count: "desc",
-          },
-        },
-        {
-          comments: {
-            _count: "desc",
-          },
-        },
-      ],
-      include: {
-        author: {
-          select: { id: true, name: true, image: true, username: true },
-        },
-        category: {
-          select: {
-            name: true,
-          },
-        },
-        _count: { select: { likes: true, comments: true } },
-      },
-    });
+    let featuredPost = null;
 
-    const excludeIds: string[] = featuredPost ? [featuredPost.id] : [];
+    if (isInitialLoad) {
+      featuredPost = await db.post.findFirst({
+        orderBy: [
+          { likes: { _count: "desc" } },
+          { comments: { _count: "desc" } },
+        ],
+        include: {
+          author: {
+            select: { id: true, name: true, image: true, username: true },
+          },
+          category: { select: { name: true } },
+          _count: { select: { likes: true, comments: true } },
+        },
+      });
+
+      if (featuredPost) {
+        excludeIds.push(featuredPost.id);
+      }
+    }
+
+    let rawPosts: any[] = [];
 
     if (!userId) {
-      const publicPosts = await db.post.findMany({
-        where: {
-          id: { notIn: excludeIds },
-        },
-        take: 10,
-        orderBy: [{ createdAt: "desc" }],
+      rawPosts = await db.post.findMany({
+        where: { id: { notIn: excludeIds } },
+        take: limit,
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
         include: {
           author: {
             select: { id: true, name: true, image: true, username: true },
           },
-          category: {
-            select: {
-              name: true,
-            },
-          },
+          category: { select: { name: true } },
           _count: { select: { likes: true, comments: true } },
         },
       });
-      return NextResponse.json(
-        { success: true, featuredPost, posts: publicPosts },
-        { status: 200 },
-      );
-    }
-
-    const following = await db.follow.findMany({
-      where: { followerId: userId },
-      select: { followingId: true },
-    });
-    const followingIds = following.map((f) => f.followingId);
-
-    let followedPosts: any[] = [];
-    if (followingIds.length > 0) {
-      followedPosts = await db.post.findMany({
-        where: {
-          id: { notIn: excludeIds },
-          authorId: { in: followingIds },
-        },
-        take: 3,
-        orderBy: { createdAt: "desc" },
-        include: {
-          author: {
-            select: { id: true, name: true, image: true, username: true },
-          },
-          category: {
-            select: {
-              name: true,
-            },
-          },
-          _count: { select: { likes: true, comments: true } },
-        },
+    } else {
+      const following = await db.follow.findMany({
+        where: { followerId: userId },
+        select: { followingId: true },
       });
+      const followingIds = following.map((f) => f.followingId);
+
+      let followedPosts: any[] = [];
+      if (followingIds.length > 0) {
+        followedPosts = await db.post.findMany({
+          where: {
+            id: { notIn: excludeIds },
+            authorId: { in: followingIds },
+          },
+          take: Math.ceil(limit / 2),
+          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+          include: {
+            author: {
+              select: { id: true, name: true, image: true, username: true },
+            },
+            category: { select: { name: true } },
+            _count: { select: { likes: true, comments: true } },
+          },
+        });
+      }
+
+      const currentExclude = [...excludeIds, ...followedPosts.map((p) => p.id)];
+      const remainingTake = limit - followedPosts.length;
+
+      let remainingPosts: any[] = [];
+      if (remainingTake > 0) {
+        remainingPosts = await db.post.findMany({
+          where: { id: { notIn: currentExclude } },
+          take: remainingTake,
+          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+          include: {
+            author: {
+              select: { id: true, name: true, image: true, username: true },
+            },
+            category: { select: { name: true } },
+            _count: { select: { likes: true, comments: true } },
+          },
+        });
+      }
+
+      rawPosts = [...followedPosts, ...remainingPosts];
     }
 
-    excludeIds.push(...followedPosts.map((p) => p.id));
-
-    const engagementPosts = await db.post.findMany({
-      where: {
-        id: { notIn: excludeIds },
-        authorId: { not: userId },
-      },
-      take: 3,
-      orderBy: [
-        {
-          likes: {
-            _count: "desc",
-          },
-        },
-        {
-          comments: {
-            _count: "desc",
-          },
-        },
-      ],
-      include: {
-        author: {
-          select: { id: true, name: true, image: true, username: true },
-        },
-        category: {
-          select: {
-            name: true,
-          },
-        },
-        _count: { select: { likes: true, comments: true } },
-      },
+    const fetchedIds = [...excludeIds, ...rawPosts.map((p) => p.id)];
+    const remainingCount = await db.post.count({
+      where: { id: { notIn: fetchedIds } },
     });
-
-    excludeIds.push(...engagementPosts.map((p) => p.id));
-
-    const remainingCount = 10 - (followedPosts.length + engagementPosts.length);
-
-    const randomPosts = await db.post.findMany({
-      where: {
-        id: { notIn: excludeIds },
-      },
-      take: Math.max(remainingCount, 3),
-      orderBy: { createdAt: "desc" },
-      include: {
-        author: {
-          select: { id: true, name: true, image: true, username: true },
-        },
-        category: {
-          select: {
-            name: true,
-          },
-        },
-        _count: { select: { likes: true, comments: true } },
-      },
-    });
-
-    const hybridFeed = interleavePosts(
-      followedPosts,
-      engagementPosts,
-      randomPosts,
-    );
 
     return NextResponse.json(
       {
         success: true,
         featuredPost,
-        posts: hybridFeed,
+        posts: rawPosts,
+        hasMore: remainingCount > 0,
       },
       { status: 200 },
     );
@@ -166,17 +120,4 @@ export async function GET(request: Request) {
       { status: 500 },
     );
   }
-}
-
-function interleavePosts(followed: any[], engagement: any[], random: any[]) {
-  const result = [];
-  const maxLength = Math.max(followed.length, engagement.length, random.length);
-
-  for (let i = 0; i < maxLength; i++) {
-    if (followed[i]) result.push(followed[i]);
-    if (engagement[i]) result.push(engagement[i]);
-    if (random[i]) result.push(random[i]);
-  }
-
-  return result;
 }
