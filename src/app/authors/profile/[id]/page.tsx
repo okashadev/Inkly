@@ -247,7 +247,7 @@ export default function AuthorProfilePage({
                     disabled={followLoading}
                     onClick={handleFollowClick}
                     className={`w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm transition-all shadow-md ${
-                      followLoading ? "opacity-70 cursor-not-allowed" : ""
+                      followLoading ? "opacity-70" : ""
                     } ${
                       isFollowing
                         ? "bg-white/10 text-white border border-white/10 hover:bg-white/20"

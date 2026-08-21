@@ -275,7 +275,6 @@ export default function BlogsPage() {
           </motion.section>
         )}
 
-        {/* Blog Post Grid (3-Columns) */}
         {posts.length > 0 ? (
           <motion.section
             variants={containerVariants}

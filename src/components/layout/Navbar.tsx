@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { FaSearch, FaBars, FaTimes } from "react-icons/fa";
@@ -22,7 +23,8 @@ export default function Navbar() {
   const [openDropdown, setOpenDropdown] = useState(false);
   const { data: session, status } = useSession();
   const [categories, setCategories] = useState<Category[]>([]);
-
+  const [searchQuery, setSearchQuery] = useState("");
+  const router = useRouter();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -44,6 +46,13 @@ export default function Navbar() {
       .catch((err) => console.error("Error loading categories:", err));
   }, []);
 
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      router.push(`/blog/search?q=${encodeURIComponent(searchQuery.trim())}`);
+      setMobileMenuOpen(false);
+    }
+  };
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -102,7 +111,10 @@ export default function Navbar() {
         {/* Desktop Links */}
         <div className="hidden md:flex gap-8 items-center">
           {/* Blog */}
-          <Link href="/blog" className="text-sm text-white/70 hover:text-white transition-colors">
+          <Link
+            href="/blog"
+            className="text-sm text-white/70 hover:text-white transition-colors"
+          >
             Blog
           </Link>
 
@@ -158,15 +170,21 @@ export default function Navbar() {
 
         {/* Desktop Actions */}
         <div className="hidden md:flex gap-4 items-center">
-          {/* Search Bar */}
-          <div className="flex items-center bg-white/10 px-3 py-2 rounded-full backdrop-blur-md border border-white/10 focus-within:border-white/30 transition-all">
-            <FaSearch className="text-white/60 text-sm mr-2" />
+          <form
+            onSubmit={handleSearchSubmit}
+            className="flex items-center bg-white/10 px-3 py-2 rounded-full backdrop-blur-md border border-white/10 focus-within:border-white/30 transition-all"
+          >
+            <button type="submit" aria-label="Search">
+              <FaSearch className="text-white/60 text-sm mr-2 hover:text-white transition-colors" />
+            </button>
             <input
               type="text"
               placeholder="Search..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
               className="bg-transparent outline-none text-sm text-white placeholder-white/50 w-28 lg:w-36"
             />
-          </div>
+          </form>
 
           {/* Auth Button / Profile Dropdown */}
           {session ? (
@@ -275,14 +293,21 @@ export default function Navbar() {
               className="absolute top-20 left-0 right-0 mx-auto w-full bg-[#11192e]/95 backdrop-blur-2xl border border-white/15 p-5 rounded-2xl shadow-2xl flex flex-col gap-4 z-50 md:hidden"
             >
               {/* Search bar inside mobile menu */}
-              <div className="flex items-center bg-white/10 px-4 py-2.5 rounded-xl border border-white/10">
-                <FaSearch className="text-white/60 text-sm mr-2" />
+              <form
+                onSubmit={handleSearchSubmit}
+                className="flex items-center bg-white/10 px-4 py-2.5 rounded-xl border border-white/10"
+              >
+                <button type="submit" aria-label="Search mobile">
+                  <FaSearch className="text-white/60 text-sm mr-2" />
+                </button>
                 <input
                   type="text"
                   placeholder="Search articles..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
                   className="bg-transparent outline-none text-sm text-white placeholder-white/50 w-full"
                 />
-              </div>
+              </form>
 
               {/* Navigation Links */}
               <div className="flex flex-col gap-3 pt-2">

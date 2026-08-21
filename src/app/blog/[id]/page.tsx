@@ -8,7 +8,7 @@ import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import { useSession } from "next-auth/react";
 import CTA from "@/components/home/CTA";
-import { UserCheck, UserPlus } from "lucide-react";
+import { Eye, Heart, MessageSquare, UserCheck, UserPlus } from "lucide-react";
 
 interface CommentType {
   id: string;
@@ -30,6 +30,7 @@ interface PostData {
   createdAt: string;
   views: number;
   category?: {
+    id: string;
     name: string;
   };
   author?: {
@@ -44,6 +45,45 @@ interface PostData {
   };
 }
 
+interface RelatedPostData {
+  id: string;
+  title: string;
+  coverImage?: string | null;
+  description?: string;
+  views?: number;
+  category?: {
+    name: string;
+  };
+  createdAt: string;
+  author?: {
+    id: string;
+    name: string;
+    image: string | null;
+    bio?: string;
+  };
+  _count: {
+    likes: number;
+    comments: number;
+  };
+}
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: { staggerChildren: 0.1 },
+  },
+};
+
+const fadeUpVariants = {
+  hidden: { opacity: 0, y: 25 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.5, ease: [0.25, 0.1, 0.25, 1.0] as const },
+  },
+};
+
 export default function BlogPage({
   params,
 }: {
@@ -53,11 +93,14 @@ export default function BlogPage({
   const { data: session, status } = useSession();
 
   const [post, setPost] = useState<PostData | null>(null);
+  const [relatedPosts, setRelatedPosts] = useState<RelatedPostData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [relPostLoading, setRelPostLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isFollowing, setIsFollowing] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
+  const [categoryId, setCategoryId] = useState("");
 
   const [isLiked, setIsLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
@@ -76,6 +119,20 @@ export default function BlogPage({
     },
   ]);
 
+  const fetchRelatedPosts = async (categoryId: string, postId: string) => {
+    try {
+      const res = await fetch(
+        `/api/post/related?categoryId=${categoryId}&currentPostId=${postId}`,
+      );
+      const data = await res.json();
+      if (data.success) {
+        setRelatedPosts(data.posts);
+      }
+    } catch (err) {
+      console.error("Failed to fetch related posts:", err);
+    }
+  };
+
   useEffect(() => {
     async function fetchPost() {
       try {
@@ -88,6 +145,7 @@ export default function BlogPage({
         if (data.success && data.post) {
           setPost(data.post);
           setLikeCount(data.post._count?.likes ?? 0);
+          setCategoryId(data.post?.category?.id);
 
           if (typeof data.isLiked === "boolean") {
             setIsLiked(data.isLiked);
@@ -99,7 +157,7 @@ export default function BlogPage({
         } else {
           setError(data.error || "Blog post not found.");
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error("Fetch Blog Error:", err);
         setError("Failed to load blog post.");
       } finally {
@@ -111,6 +169,34 @@ export default function BlogPage({
       fetchPost();
     }
   }, [id, session?.user?.id]);
+
+  console.log(categoryId);
+
+  useEffect(() => {
+    setRelPostLoading(true);
+    const fetchRelatedPosts = async (categoryId: string, postId: string) => {
+      try {
+        const res = await fetch(
+          `/api/post/related?categoryId=${categoryId}&currentPostId=${postId}`,
+        );
+        const data = await res.json();
+        if (data.success) {
+          setRelatedPosts(data.posts);
+          console.log(relatedPosts);
+        }
+      } catch (err) {
+        console.error("Failed to fetch related posts:", err);
+      } finally {
+        setRelPostLoading(false);
+      }
+    };
+
+    if (id && categoryId) {
+      fetchRelatedPosts(categoryId, id);
+    }
+  }, [id, categoryId]);
+
+  console.log(relatedPosts);
 
   useEffect(() => {
     if (!id) return;
@@ -348,7 +434,6 @@ export default function BlogPage({
 
       <main className="pt-32 md:pt-36 pb-20 px-4 md:px-8 max-w-7xl mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 relative">
-          {/* Main Content Column */}
           <div className="lg:col-span-8 xl:col-span-9 max-w-3xl mx-auto w-full">
             {/* Header Section */}
             <motion.header
@@ -397,7 +482,7 @@ export default function BlogPage({
                 <div className="flex-1">
                   <Link
                     href={`/authors/profile/${post.author?.id}`}
-                    className="font-semibold text-white capitalize text-sm sm:text-base"
+                    className="font-semibold text-white capitalize text-sm sm:text-base hover:text-blue-400 transition"
                   >
                     {post.author?.name || "Anonymous Author"}
                   </Link>
@@ -462,24 +547,23 @@ export default function BlogPage({
               </motion.div>
             )}
 
-            {/* Article Body (HTML / BlockNote Output) */}
+            {/* Article Body */}
             <article
               id="article-content"
               className="prose prose-invert prose-blue max-w-none leading-relaxed text-slate-300
-                [&_h1]:text-white [&_h1]:font-bold [&_h1]:text-2xl [&_h1]:sm:text-3xl [&_h1]:mt-8 [&_h1]:mb-4
-                [&_h2]:text-white [&_h2]:font-bold [&_h2]:text-xl [&_h2]:sm:text-2xl [&_h2]:mt-8 [&_h2]:mb-4
-                [&_h3]:text-white [&_h3]:font-semibold [&_h3]:text-lg [&_h3]:sm:text-xl [&_h3]:mt-6 [&_h3]:mb-3
-                [&_p]:mb-5 [&_p]:leading-7 [&_p]:text-slate-300/90
-                [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:mb-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:mb-6
-                [&_blockquote]:border-l-4 [&_blockquote]:border-blue-500 [&_blockquote]:bg-blue-950/20 [&_blockquote]:py-2 [&_blockquote]:px-5 [&_blockquote]:rounded-r-lg [&_blockquote]:italic [&_blockquote]:text-slate-200 [&_blockquote]:my-6
-                
-                /* Code Block Styling */
-                [&_pre]:bg-[#030712] [&_pre]:p-4 [&_pre]:sm:p-5 [&_pre]:rounded-xl [&_pre]:border [&_pre]:border-white/10 [&_pre]:my-6 [&_pre]:overflow-x-auto [&_pre]:shadow-lg
-                [&_code]:font-mono [&_code]:text-xs [&_code]:sm:text-sm [&_code]:text-blue-300 [&_code]:leading-relaxed
-                [&_p_code]:bg-[#131d33] [&_p_code]:px-1.5 [&_p_code]:py-0.5 [&_p_code]:rounded [&_p_code]:text-blue-300 [&_p_code]:font-mono [&_p_code]:text-xs"
+              [&_h1]:text-white [&_h1]:font-bold [&_h1]:text-2xl [&_h1]:sm:text-3xl [&_h1]:mt-8 [&_h1]:mb-4
+              [&_h2]:text-white [&_h2]:font-bold [&_h2]:text-xl [&_h2]:sm:text-2xl [&_h2]:mt-8 [&_h2]:mb-4
+              [&_h3]:text-white [&_h3]:font-semibold [&_h3]:text-lg [&_h3]:sm:text-xl [&_h3]:mt-6 [&_h3]:mb-3
+              [&_p]:mb-5 [&_p]:leading-7 [&_p]:text-slate-300/90
+              [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:mb-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:mb-6
+              [&_blockquote]:border-l-4 [&_blockquote]:border-blue-500 [&_blockquote]:bg-blue-950/20 [&_blockquote]:py-2 [&_blockquote]:px-5 [&_blockquote]:rounded-r-lg [&_blockquote]:italic [&_blockquote]:text-slate-200 [&_blockquote]:my-6
+              [&_pre]:bg-[#030712] [&_pre]:p-4 [&_pre]:sm:p-5 [&_pre]:rounded-xl [&_pre]:border [&_pre]:border-white/10 [&_pre]:my-6 [&_pre]:overflow-x-auto [&_pre]:shadow-lg
+              [&_code]:font-mono [&_code]:text-xs [&_code]:sm:text-sm [&_code]:text-blue-300 [&_code]:leading-relaxed
+              [&_p_code]:bg-[#131d33] [&_p_code]:px-1.5 [&_p_code]:py-0.5 [&_p_code]:rounded [&_p_code]:text-blue-300 [&_p_code]:font-mono [&_p_code]:text-xs"
               dangerouslySetInnerHTML={{ __html: post.content }}
             />
 
+            {/* Interaction Bar */}
             <div className="my-10 py-4 px-6 bg-[#131b2e]/60 border border-white/10 rounded-2xl flex items-center justify-between gap-4 backdrop-blur-md">
               <div className="flex items-center gap-4 sm:gap-6">
                 {/* Like Button */}
@@ -606,7 +690,7 @@ export default function BlogPage({
                   <div>
                     <Link
                       href={`/authors/profile/${post.author?.id}`}
-                      className="text-lg sm:text-xl capitalize font-bold text-white"
+                      className="text-lg sm:text-xl capitalize font-bold text-white hover:text-blue-400 transition"
                     >
                       {post.author?.name || "Author"}
                     </Link>
@@ -644,7 +728,6 @@ export default function BlogPage({
                   {post.author?.bio || ""}
                 </p>
 
-                {/* Followers & Articles Stats */}
                 <div className="flex items-center justify-center sm:justify-start gap-6 pt-3 border-t border-white/10 text-xs text-slate-400">
                   <div className="flex items-center gap-1.5">
                     <span className="font-bold text-white text-sm">
@@ -662,12 +745,13 @@ export default function BlogPage({
                 </div>
               </div>
             </div>
+
+            {/* Comments Section */}
             <section id="comments-section" className="mt-16 space-y-8">
               <h3 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
                 Comments ({comments.length})
               </h3>
 
-              {/* Comment Input Box */}
               <form
                 onSubmit={handleCommentSubmit}
                 className="p-5 bg-[#131b2e]/80 border border-white/10 rounded-2xl space-y-4 shadow-xl"
@@ -694,7 +778,6 @@ export default function BlogPage({
                 </div>
               </form>
 
-              {/* Comment List */}
               <div className="space-y-4">
                 {comments.length === 0 ? (
                   <p className="text-slate-500 text-sm text-center py-6">
@@ -747,7 +830,7 @@ export default function BlogPage({
             </section>
           </div>
 
-          {/* Table of Contents - Desktop Sidebar (Sticky) */}
+          {/* Sidebar Navigation */}
           <div className="hidden lg:block lg:col-span-4 xl:col-span-3">
             <div className="sticky top-32 p-5 rounded-2xl bg-[#131b2e]/60 border border-white/10 backdrop-blur-md space-y-4">
               <h4 className="text-xs font-bold uppercase tracking-widest text-slate-400">
@@ -772,12 +855,135 @@ export default function BlogPage({
                 >
                   About Author
                 </a>
+                <a
+                  href="#comments-section"
+                  className="text-slate-400 hover:text-blue-400 transition py-1 border-l-2 border-transparent hover:border-blue-400 pl-3"
+                >
+                  Comments
+                </a>
               </nav>
             </div>
           </div>
         </div>
+
+        {/* Related Stories Section */}
+        <div className="mt-20 pt-12 border-t border-white/10 w-full">
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h2 className="text-2xl sm:text-3xl font-extrabold text-white font-headline tracking-tight">
+                Related Blogs
+              </h2>
+              <p className="text-slate-400 text-sm mt-1">
+                More articles you might enjoy based on this topic
+              </p>
+            </div>
+          </div>
+
+          {relatedPosts.length > 0 ? (
+            <motion.section
+              variants={containerVariants}
+              initial="hidden"
+              whileInView="show"
+              viewport={{ once: true, margin: "-100px" }}
+            >
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {relatedPosts.map((post) => (
+                  <motion.article
+                    key={post.id}
+                    variants={fadeUpVariants}
+                    className="bg-[#131b2e]/50 border border-white/10 rounded-2xl overflow-hidden flex flex-col hover:border-blue-500/40 hover:bg-[#131b2e]/90 hover:shadow-2xl hover:shadow-blue-500/5 transition-all duration-300 group"
+                  >
+                    <Link
+                      href={`/blog/${post.id}`}
+                      className="relative aspect-video w-full overflow-hidden bg-slate-900 block"
+                    >
+                      {post.coverImage ? (
+                        <Image
+                          src={post.coverImage}
+                          alt={post.title}
+                          fill
+                          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                          className="object-cover group-hover:scale-105 transition duration-500 ease-out"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-slate-600 text-xs font-semibold">
+                          No Image
+                        </div>
+                      )}
+                      <div className="absolute top-3 left-3 z-10">
+                        <span className="px-3 py-1 bg-[#0b1326]/80 backdrop-blur-md text-blue-300 rounded-full text-[11px] font-semibold border border-white/10 tracking-wide uppercase">
+                          {post.category?.name || "General"}
+                        </span>
+                      </div>
+                    </Link>
+
+                    <div className="p-6 flex flex-col flex-1 justify-between space-y-5">
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between text-xs text-slate-400">
+                          <span>
+                            {new Date(post.createdAt).toLocaleDateString(
+                              "en-US",
+                              {
+                                month: "short",
+                                day: "numeric",
+                                year: "numeric",
+                              },
+                            )}
+                          </span>
+                          <div className="flex items-center gap-3">
+                            <span className="flex items-center gap-1">
+                              <Heart className="w-3.5 h-3.5 text-rose-400 fill-rose-400/20" />
+                              {post._count?.likes || 0}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <MessageSquare className="w-3.5 h-3.5 text-blue-400" />
+                              {post._count?.comments || 0}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Eye className="w-3.5 h-3.5 text-slate-400" />
+                              {post.views || 0}
+                            </span>
+                          </div>
+                        </div>
+
+                        <Link href={`/blog/${post.id}`} className="block">
+                          <h3 className="text-lg font-bold text-white group-hover:text-blue-400 transition duration-200 line-clamp-2 leading-snug">
+                            {post.title}
+                          </h3>
+                        </Link>
+
+                        <p className="text-slate-400 text-sm leading-relaxed line-clamp-2">
+                          {post.description || ""}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-4 border-t border-white/5 text-xs">
+                        <span className="text-slate-400 font-medium">
+                          By {post.author?.name || "Anonymous"}
+                        </span>
+                        <Link
+                          href={`/blog/${post.id}`}
+                          className="inline-flex items-center gap-1.5 font-semibold text-blue-400 hover:text-blue-300 group-hover:translate-x-1 transition duration-200"
+                        >
+                          Read Story <span className="text-sm">→</span>
+                        </Link>
+                      </div>
+                    </div>
+                  </motion.article>
+                ))}
+              </div>
+            </motion.section>
+          ) : (
+            <div className="text-center py-16 bg-[#131b2e]/30 border border-dashed border-white/10 rounded-2xl text-slate-400">
+              <p className="text-sm font-medium">
+                No related Blogs found at the moment.
+              </p>
+            </div>
+          )}
+        </div>
       </main>
 
+      {/* Modals & Bottom Components */}
       <AnimatePresence>
         {isAuthModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
