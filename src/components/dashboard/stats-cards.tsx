@@ -1,56 +1,59 @@
-import { FileText, Eye, Heart, Users, type LucideIcon } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { UserStats } from "@/types/user";
+import { FileText, Eye, Heart, Users, type LucideIcon } from "lucide-react";
 
-type Stat = {
-  label: string
-  value: string
-  delta: string
-  deltaTone: "positive" | "accent"
-  icon: LucideIcon
+interface StatsCardsProps {
+  stats: UserStats | null;
 }
 
-const stats: Stat[] = [
-  { label: "Total Posts", value: "42", delta: "+12%", deltaTone: "positive", icon: FileText },
-  { label: "Total Views", value: "12.5k", delta: "+24%", deltaTone: "positive", icon: Eye },
-  { label: "Total Likes", value: "3.2k", delta: "+8%", deltaTone: "accent", icon: Heart },
-  { label: "Followers", value: "480", delta: "+18%", deltaTone: "positive", icon: Users },
-]
-
-export function StatsCards() {
+export function StatsCards({ stats }: StatsCardsProps) {
+  const statsList = [
+    {
+      label: "Total Posts",
+      value: stats?.totalPosts ?? 0,
+      icon: FileText,
+    },
+    {
+      label: "Total Views",
+      value: stats?.totalViews ? stats.totalViews.toLocaleString() : 0,
+      icon: Eye,
+    },
+    {
+      label: "Total Likes",
+      value: stats?.totalLikes ? stats.totalLikes.toLocaleString() : 0,
+      icon: Heart,
+    },
+    {
+      label: "Followers",
+      value: stats?.totalFollowers ? stats.totalFollowers.toLocaleString() : 0,
+      icon: Users,
+    },
+  ];
   return (
     <section
       aria-label="Key performance stats"
-      className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4"
+      className="grid grid-cols-2 gap-4 xl:grid-cols-4"
     >
-      {stats.map((stat) => {
-        const Icon = stat.icon
+      {statsList.map((stat) => {
+        const Icon = stat.icon;
         return (
           <div
             key={stat.label}
-            className="rounded-2xl border border-outline-variant/10 bg-surface-container/80 p-6 backdrop-blur-xl transition-all duration-300 hover:-translate-y-1"
+            className="rounded-2xl border border-outline-variant/10 bg-surface-container-low p-5 transition-all duration-200 hover:border-outline-variant/20"
           >
-            <div className="mb-4 flex items-start justify-between">
-              <div className="rounded-xl bg-primary/10 p-3 text-primary">
-                <Icon className="h-5 w-5" aria-hidden="true" />
-              </div>
-              <span
-                className={cn(
-                  "rounded-full px-2 py-1 text-xs font-medium",
-                  stat.deltaTone === "positive"
-                    ? "bg-emerald-400/10 text-emerald-400"
-                    : "bg-pink-400/10 text-pink-400",
-                )}
-              >
-                {stat.delta}
+            <div className="mb-3 flex items-center justify-between">
+              <span className="text-xs font-medium text-muted-foreground">
+                {stat.label}
               </span>
+              <div className="rounded-lg bg-primary/10 p-2 text-primary">
+                <Icon className="h-4 w-4" aria-hidden="true" />
+              </div>
             </div>
-            <p className="text-sm font-medium text-muted-foreground">{stat.label}</p>
-            <h4 className="mt-1 font-display text-3xl font-bold text-foreground">
+            <h4 className="font-display text-2xl font-bold tracking-tight text-foreground">
               {stat.value}
             </h4>
           </div>
-        )
+        );
       })}
     </section>
-  )
+  );
 }

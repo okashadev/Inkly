@@ -28,18 +28,18 @@ export function TopNav({ user }: { user: any }) {
   }, [isOpen]);
 
   return (
-    <header className="fixed left-0 right-0 top-0 z-30 flex h-25 items-center justify-between border-b border-border/30 bg-background/70 px-6 backdrop-blur-xl md:left-64 md:px-12">
+    <header className="fixed left-0 right-0 top-0 z-30 flex h-18 items-center justify-between border-b border-border/30 bg-background/70 px-6 backdrop-blur-xl md:left-64 md:px-12">
       <div className="flex items-center gap-4">
-        <Link href="/" className="font-display text-xl font-extrabold tracking-tighter text-primary md:hidden">
+        <Link
+          href="/"
+          className="font-display text-xl font-extrabold tracking-tighter text-white md:hidden"
+        >
           Inkly
         </Link>
-        <nav className="hidden md:flex flex-col" aria-label="Primary">
-          <h2 className="mb-2 text-sm font-medium uppercase tracking-widest text-muted-foreground">
-            Dashboard
+        <nav className="hidden md:block" aria-label="Primary">
+          <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+            Dashboard Overview
           </h2>
-          <h3 className="text-balance font-display text-2xl font-extrabold tracking-tighter text-foreground">
-            Welcome back, {user.name || "User"}
-          </h3>
         </nav>
       </div>
 
@@ -91,7 +91,9 @@ export function TopNav({ user }: { user: any }) {
                 <div className="px-3 py-2 text-sm font-semibold text-muted-foreground uppercase tracking-wider">
                   {user?.name}
                 </div>
-                <p className="px-3 text-xs text-muted-foreground lowercase">{user?.email}</p>
+                <p className="px-3 text-xs text-muted-foreground lowercase">
+                  {user?.email}
+                </p>
 
                 <div className="my-1.5 h-px bg-border/20" />
 
