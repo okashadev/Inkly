@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="inkly" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38BDF8"/>
+      <stop offset="50%" stop-color="#6366F1"/>
+      <stop offset="100%" stop-color="#A855F7"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="512" height="512" rx="120" fill="#0B1326"/>
+
+  <!-- Ink Drop -->
+  <path
+    d="M256 90
+       C290 170 370 220 370 325
+       C370 388 319 440 256 440
+       C193 440 142 388 142 325
+       C142 220 222 170 256 90Z"
+    fill="url(#inkly)"
+  />
+
+  <!-- Letter I -->
+  <rect x="236" y="180" width="40" height="160" rx="20" fill="#0B1326"/>
+  <rect x="210" y="160" width="92" height="28" rx="14" fill="#0B1326"/>
+  <rect x="210" y="332" width="92" height="28" rx="14" fill="#0B1326"/>
+</svg>

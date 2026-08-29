@@ -8,81 +8,13 @@ import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import { useSession } from "next-auth/react";
 import CTA from "@/components/home/CTA";
-import { Eye, Heart, MessageSquare, UserCheck, UserPlus } from "lucide-react";
-
-interface CommentType {
-  id: string;
-  content: string;
-  createdAt: string;
-  author: {
-    name: string;
-    image: string | null;
-  };
-}
-
-interface PostData {
-  id: string;
-  title: string;
-  description: string | null;
-  content: string;
-  coverImage: string | null;
-  readingTime: number;
-  createdAt: string;
-  views: number;
-  category?: {
-    id: string;
-    name: string;
-  };
-  author?: {
-    id: string;
-    name: string;
-    image: string | null;
-    bio?: string;
-    _count?: {
-      followers: number;
-      posts: number;
-    };
-  };
-}
-
-interface RelatedPostData {
-  id: string;
-  title: string;
-  coverImage?: string | null;
-  description?: string;
-  views?: number;
-  category?: {
-    name: string;
-  };
-  createdAt: string;
-  author?: {
-    id: string;
-    name: string;
-    image: string | null;
-    bio?: string;
-  };
-  _count: {
-    likes: number;
-    comments: number;
-  };
-}
-
-const containerVariants = {
-  hidden: { opacity: 0 },
-  show: {
-    opacity: 1,
-    transition: { staggerChildren: 0.1 },
-  },
-};
-
-const fadeUpVariants = {
-  hidden: { opacity: 0, y: 25 },
-  show: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.5, ease: [0.25, 0.1, 0.25, 1.0] as const },
-  },
-};
+import { UserCheck, UserPlus } from "lucide-react";
+import { formatTimeAgo } from "@/utils/formatTime";
+import { Post } from "@/types/post";
+import CommentSection from "@/components/blog/view/CommentSection";
+import RelatedBlogs from "@/components/blog/view/RelatedBlogs";
+import InteractionBar from "@/components/blog/view/InteractionBar";
+import AuthorBio from "@/components/blog/view/AuthorBio";
 
 export default function BlogPage({
   params,
@@ -92,10 +24,9 @@ export default function BlogPage({
   const { id } = use(params);
   const { data: session, status } = useSession();
 
-  const [post, setPost] = useState<PostData | null>(null);
-  const [relatedPosts, setRelatedPosts] = useState<RelatedPostData[]>([]);
+  const [post, setPost] = useState<Post | null>(null);
   const [loading, setLoading] = useState(true);
-  const [relPostLoading, setRelPostLoading] = useState(true);
+
   const [error, setError] = useState<string | null>(null);
   const [isFollowing, setIsFollowing] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -104,34 +35,6 @@ export default function BlogPage({
 
   const [isLiked, setIsLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
-  const [isSaved, setIsSaved] = useState(false);
-  const [commentInput, setCommentInput] = useState("");
-  const [comments, setComments] = useState<CommentType[]>([
-    {
-      id: "1",
-      content:
-        "Great article! Really enjoyed reading through your perspective on this topic.",
-      createdAt: new Date().toISOString(),
-      author: {
-        name: "Alex Johnson",
-        image: null,
-      },
-    },
-  ]);
-
-  const fetchRelatedPosts = async (categoryId: string, postId: string) => {
-    try {
-      const res = await fetch(
-        `/api/post/related?categoryId=${categoryId}&currentPostId=${postId}`,
-      );
-      const data = await res.json();
-      if (data.success) {
-        setRelatedPosts(data.posts);
-      }
-    } catch (err) {
-      console.error("Failed to fetch related posts:", err);
-    }
-  };
 
   useEffect(() => {
     async function fetchPost() {
@@ -139,8 +42,6 @@ export default function BlogPage({
         setLoading(true);
         const res = await fetch(`/api/post/get?id=${id}`);
         const data = await res.json();
-
-        console.log("Fetched Post Data:", data);
 
         if (data.success && data.post) {
           setPost(data.post);
@@ -168,35 +69,7 @@ export default function BlogPage({
     if (id) {
       fetchPost();
     }
-  }, [id, session?.user?.id]);
-
-  console.log(categoryId);
-
-  useEffect(() => {
-    setRelPostLoading(true);
-    const fetchRelatedPosts = async (categoryId: string, postId: string) => {
-      try {
-        const res = await fetch(
-          `/api/post/related?categoryId=${categoryId}&currentPostId=${postId}`,
-        );
-        const data = await res.json();
-        if (data.success) {
-          setRelatedPosts(data.posts);
-          console.log(relatedPosts);
-        }
-      } catch (err) {
-        console.error("Failed to fetch related posts:", err);
-      } finally {
-        setRelPostLoading(false);
-      }
-    };
-
-    if (id && categoryId) {
-      fetchRelatedPosts(categoryId, id);
-    }
-  }, [id, categoryId]);
-
-  console.log(relatedPosts);
+  }, [id]);
 
   useEffect(() => {
     if (!id) return;
@@ -226,23 +99,6 @@ export default function BlogPage({
     }
 
     incrementView();
-  }, [id]);
-
-  useEffect(() => {
-    async function fetchComments() {
-      if (!id) return;
-      try {
-        const res = await fetch(`/api/post/comment?postId=${id}`);
-        const data = await res.json();
-        if (data.success) {
-          setComments(data.comments);
-        }
-      } catch (err) {
-        console.error("Failed to load comments:", err);
-      }
-    }
-
-    fetchComments();
   }, [id]);
 
   const handleFollowClick = async () => {
@@ -290,98 +146,21 @@ export default function BlogPage({
     }
   };
 
-  const handleLikeClick = async () => {
-    if (status === "unauthenticated") {
-      setIsAuthModalOpen(true);
-      return;
+  useEffect(() => {
+    if (
+      typeof window !== "undefined" &&
+      window.location.hash === "#comments-section"
+    ) {
+      const timer = setTimeout(() => {
+        const element = document.getElementById("comments-section");
+        if (element) {
+          element.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      }, 300);
+
+      return () => clearTimeout(timer);
     }
-    if (!post?.id) return;
-
-    const previousIsLiked = isLiked;
-    const previousCount = likeCount;
-
-    setIsLiked(!isLiked);
-    setLikeCount((prev) => (isLiked ? prev - 1 : prev + 1));
-
-    try {
-      const res = await fetch("/api/post/likes", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ postId: post.id }),
-      });
-
-      const data = await res.json();
-
-      if (data.success) {
-        setIsLiked(data.isLiked);
-        setLikeCount(data.likesCount);
-      } else {
-        setIsLiked(previousIsLiked);
-        setLikeCount(previousCount);
-      }
-    } catch (err: any) {
-      console.error("Failed to toggle like:", err);
-      setIsLiked(previousIsLiked);
-      setLikeCount(previousCount);
-    }
-  };
-
-  const handleSaveClick = () => {
-    if (status === "unauthenticated") {
-      setIsAuthModalOpen(true);
-      return;
-    }
-    setIsSaved(!isSaved);
-  };
-
-  const handleShareClick = async () => {
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: post?.title,
-          url: window.location.href,
-        });
-      } catch (e) {
-        console.log("Error sharing", e);
-      }
-    } else {
-      navigator.clipboard.writeText(window.location.href);
-      alert("Link copied to clipboard!");
-    }
-  };
-
-  const handleCommentSubmit = async (e: React.SyntheticEvent) => {
-    e.preventDefault();
-
-    if (status === "unauthenticated") {
-      setIsAuthModalOpen(true);
-      return;
-    }
-
-    if (!commentInput.trim() || !post?.id) return;
-
-    try {
-      const res = await fetch("/api/post/comment", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          postId: post.id,
-          content: commentInput,
-        }),
-      });
-
-      const data = await res.json();
-
-      console.log(data);
-
-      if (data.success) {
-        setComments((prev) => [data.comment, ...prev]);
-        setCommentInput("");
-      }
-    } catch (err) {
-      console.error("Failed to post comment:", err);
-    }
-  };
+  }, [loading]);
 
   const isOwnPost =
     session?.user?.id && post?.author?.id && session.user.id === post.author.id;
@@ -487,13 +266,9 @@ export default function BlogPage({
                     {post.author?.name || "Anonymous Author"}
                   </Link>
                   <p className="text-xs text-slate-400">
-                    {new Date(post.createdAt).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                    })}{" "}
-                    • {post.readingTime || 5} min read
-                    {post.views > 0 && ` • ${post.views} views`}
+                    {formatTimeAgo(post.createdAt)} • {post.readingTime || 5}{" "}
+                    min read
+                    {(post.views ?? 0) > 0 && ` • ${post.views} views`}
                   </p>
                 </div>
                 <div>
@@ -560,274 +335,32 @@ export default function BlogPage({
               [&_pre]:bg-[#030712] [&_pre]:p-4 [&_pre]:sm:p-5 [&_pre]:rounded-xl [&_pre]:border [&_pre]:border-white/10 [&_pre]:my-6 [&_pre]:overflow-x-auto [&_pre]:shadow-lg
               [&_code]:font-mono [&_code]:text-xs [&_code]:sm:text-sm [&_code]:text-blue-300 [&_code]:leading-relaxed
               [&_p_code]:bg-[#131d33] [&_p_code]:px-1.5 [&_p_code]:py-0.5 [&_p_code]:rounded [&_p_code]:text-blue-300 [&_p_code]:font-mono [&_p_code]:text-xs"
-              dangerouslySetInnerHTML={{ __html: post.content }}
+              dangerouslySetInnerHTML={{ __html: post.content || "" }}
             />
 
-            {/* Interaction Bar */}
-            <div className="my-10 py-4 px-6 bg-[#131b2e]/60 border border-white/10 rounded-2xl flex items-center justify-between gap-4 backdrop-blur-md">
-              <div className="flex items-center gap-4 sm:gap-6">
-                {/* Like Button */}
-                <button
-                  onClick={handleLikeClick}
-                  className={`flex items-center gap-2 text-sm font-semibold transition active:scale-95 ${
-                    isLiked
-                      ? "text-rose-500"
-                      : "text-slate-400 hover:text-white"
-                  }`}
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 24 24"
-                    fill={isLiked ? "currentColor" : "none"}
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="w-5 h-5"
-                  >
-                    <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
-                  </svg>
-                  <span>{likeCount}</span>
-                </button>
+            <InteractionBar
+              postId={post.id}
+              postTitle={post.title}
+              liked={isLiked}
+              totalLikes={likeCount}
+              commentCount={post._count?.comments}
+              status={status}
+              onAuthRequired={() => setIsAuthModalOpen(true)}
+            />
 
-                {/* Scroll to Comment Button */}
-                <a
-                  href="#comments-section"
-                  className="flex items-center gap-2 text-sm font-semibold text-slate-400 hover:text-white transition"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="w-5 h-5"
-                  >
-                    <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" />
-                  </svg>
-                  <span>{comments.length}</span>
-                </a>
-              </div>
+            <AuthorBio
+              author={post.author}
+              isOwnPost={!!isOwnPost}
+              isFollowing={isFollowing}
+              followLoading={followLoading}
+              onFollowToggle={handleFollowClick}
+            />
 
-              <div className="flex items-center gap-4 sm:gap-6">
-                {/* Save / Bookmark Button */}
-                <button
-                  onClick={handleSaveClick}
-                  className={`p-2 rounded-xl border border-white/5 transition active:scale-95 ${
-                    isSaved
-                      ? "text-blue-400 bg-blue-500/10 border-blue-500/20"
-                      : "text-slate-400 hover:text-white bg-slate-800/40"
-                  }`}
-                  title="Bookmark"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 24 24"
-                    fill={isSaved ? "currentColor" : "none"}
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="w-5 h-5"
-                  >
-                    <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z" />
-                  </svg>
-                </button>
-
-                {/* Share Button */}
-                <button
-                  onClick={handleShareClick}
-                  className="p-2 text-slate-400 hover:text-white bg-slate-800/40 border border-white/5 rounded-xl transition active:scale-95"
-                  title="Share"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="w-5 h-5"
-                  >
-                    <circle cx="18" cy="5" r="3" />
-                    <circle cx="6" cy="12" r="3" />
-                    <circle cx="18" cy="19" r="3" />
-                    <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
-                    <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-
-            {/* Author Bio Section */}
-            <div
-              id="author-bio"
-              className="mt-16 p-6 sm:p-8 bg-[#131b2e]/80 border border-white/10 rounded-2xl flex flex-col sm:flex-row items-center sm:items-start gap-6 shadow-xl backdrop-blur-sm"
-            >
-              <Link
-                href={`/authors/profile/${post.author?.id}`}
-                className="w-20 h-20 rounded-full overflow-hidden bg-slate-800 border border-white/10 relative shrink-0"
-              >
-                {post.author?.image ? (
-                  <Image
-                    src={post.author.image}
-                    alt={post.author.name || "Author"}
-                    fill
-                    className="object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-blue-400 font-bold text-2xl">
-                    {post.author?.name?.[0]?.toUpperCase() || "A"}
-                  </div>
-                )}
-              </Link>
-
-              <div className="flex-1 text-center sm:text-left space-y-3 w-full">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div>
-                    <Link
-                      href={`/authors/profile/${post.author?.id}`}
-                      className="text-lg sm:text-xl capitalize font-bold text-white hover:text-blue-400 transition"
-                    >
-                      {post.author?.name || "Author"}
-                    </Link>
-                  </div>
-                  {!isOwnPost && (
-                    <button
-                      onClick={handleFollowClick}
-                      disabled={followLoading}
-                      className={`w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm transition-all shadow-md ${
-                        followLoading ? "opacity-70" : ""
-                      } ${
-                        isFollowing
-                          ? "bg-white/10 text-white border border-white/10 hover:bg-white/20"
-                          : "bg-blue-600 hover:bg-blue-500 text-white shadow-blue-600/30"
-                      }`}
-                    >
-                      {followLoading ? (
-                        "Loading..."
-                      ) : isFollowing ? (
-                        <>
-                          <UserCheck className="w-4 h-4" />
-                          Following
-                        </>
-                      ) : (
-                        <>
-                          <UserPlus className="w-4 h-4" />
-                          Follow
-                        </>
-                      )}
-                    </button>
-                  )}
-                </div>
-
-                <p className="text-sm text-slate-400 leading-relaxed">
-                  {post.author?.bio || ""}
-                </p>
-
-                <div className="flex items-center justify-center sm:justify-start gap-6 pt-3 border-t border-white/10 text-xs text-slate-400">
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-bold text-white text-sm">
-                      {post?.author?._count?.followers || 0}
-                    </span>
-                    <span className="text-slate-400">Followers</span>
-                  </div>
-                  <div className="w-1 h-1 rounded-full bg-slate-700"></div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-bold text-white text-sm">
-                      {post?.author?._count?.posts || 0}
-                    </span>
-                    <span className="text-slate-400">Articles</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Comments Section */}
-            <section id="comments-section" className="mt-16 space-y-8">
-              <h3 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
-                Comments ({comments.length})
-              </h3>
-
-              <form
-                onSubmit={handleCommentSubmit}
-                className="p-5 bg-[#131b2e]/80 border border-white/10 rounded-2xl space-y-4 shadow-xl"
-              >
-                <textarea
-                  value={commentInput}
-                  onChange={(e) => setCommentInput(e.target.value)}
-                  placeholder={
-                    status === "authenticated"
-                      ? "What are your thoughts?"
-                      : "Log in to join the conversation..."
-                  }
-                  rows={3}
-                  className="w-full bg-[#0b1326] text-white border border-white/10 rounded-xl p-4 text-sm focus:outline-none focus:border-blue-500 transition resize-none placeholder:text-slate-500"
-                />
-                <div className="flex justify-end">
-                  <button
-                    type="submit"
-                    disabled={!commentInput.trim()}
-                    className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:hover:bg-blue-600 text-white font-semibold text-xs rounded-xl transition duration-200"
-                  >
-                    Post Comment
-                  </button>
-                </div>
-              </form>
-
-              <div className="space-y-4">
-                {comments.length === 0 ? (
-                  <p className="text-slate-500 text-sm text-center py-6">
-                    No comments yet. Be the first to share your thoughts!
-                  </p>
-                ) : (
-                  comments.map((comment) => (
-                    <div
-                      key={comment.id}
-                      className="p-5 bg-[#131b2e]/40 border border-white/5 rounded-2xl space-y-3"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-full overflow-hidden bg-slate-800 border border-white/10 relative shrink-0">
-                          {comment.author.image ? (
-                            <Image
-                              src={comment.author.image}
-                              alt={comment.author.name}
-                              fill
-                              className="object-cover"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-blue-400 font-bold text-xs">
-                              {comment.author.name[0]?.toUpperCase()}
-                            </div>
-                          )}
-                        </div>
-                        <div>
-                          <p className="text-sm font-semibold text-white">
-                            {comment.author.name}
-                          </p>
-                          <p className="text-[10px] text-slate-500">
-                            {new Date(comment.createdAt).toLocaleDateString(
-                              "en-US",
-                              {
-                                month: "short",
-                                day: "numeric",
-                                year: "numeric",
-                              },
-                            )}
-                          </p>
-                        </div>
-                      </div>
-                      <p className="text-sm text-slate-300/90 leading-relaxed pl-12">
-                        {comment.content}
-                      </p>
-                    </div>
-                  ))
-                )}
-              </div>
-            </section>
+            <CommentSection
+              postId={post.id}
+              status={status}
+              onAuthRequired={() => setIsAuthModalOpen(true)}
+            />
           </div>
 
           {/* Sidebar Navigation */}
@@ -866,124 +399,9 @@ export default function BlogPage({
           </div>
         </div>
 
-        {/* Related Stories Section */}
-        <div className="mt-20 pt-12 border-t border-white/10 w-full">
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <h2 className="text-2xl sm:text-3xl font-extrabold text-white font-headline tracking-tight">
-                Related Blogs
-              </h2>
-              <p className="text-slate-400 text-sm mt-1">
-                More articles you might enjoy based on this topic
-              </p>
-            </div>
-          </div>
-
-          {relatedPosts.length > 0 ? (
-            <motion.section
-              variants={containerVariants}
-              initial="hidden"
-              whileInView="show"
-              viewport={{ once: true, margin: "-100px" }}
-            >
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {relatedPosts.map((post) => (
-                  <motion.article
-                    key={post.id}
-                    variants={fadeUpVariants}
-                    className="bg-[#131b2e]/50 border border-white/10 rounded-2xl overflow-hidden flex flex-col hover:border-blue-500/40 hover:bg-[#131b2e]/90 hover:shadow-2xl hover:shadow-blue-500/5 transition-all duration-300 group"
-                  >
-                    <Link
-                      href={`/blog/${post.id}`}
-                      className="relative aspect-video w-full overflow-hidden bg-slate-900 block"
-                    >
-                      {post.coverImage ? (
-                        <Image
-                          src={post.coverImage}
-                          alt={post.title}
-                          fill
-                          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                          className="object-cover group-hover:scale-105 transition duration-500 ease-out"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-slate-600 text-xs font-semibold">
-                          No Image
-                        </div>
-                      )}
-                      <div className="absolute top-3 left-3 z-10">
-                        <span className="px-3 py-1 bg-[#0b1326]/80 backdrop-blur-md text-blue-300 rounded-full text-[11px] font-semibold border border-white/10 tracking-wide uppercase">
-                          {post.category?.name || "General"}
-                        </span>
-                      </div>
-                    </Link>
-
-                    <div className="p-6 flex flex-col flex-1 justify-between space-y-5">
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between text-xs text-slate-400">
-                          <span>
-                            {new Date(post.createdAt).toLocaleDateString(
-                              "en-US",
-                              {
-                                month: "short",
-                                day: "numeric",
-                                year: "numeric",
-                              },
-                            )}
-                          </span>
-                          <div className="flex items-center gap-3">
-                            <span className="flex items-center gap-1">
-                              <Heart className="w-3.5 h-3.5 text-rose-400 fill-rose-400/20" />
-                              {post._count?.likes || 0}
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <MessageSquare className="w-3.5 h-3.5 text-blue-400" />
-                              {post._count?.comments || 0}
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <Eye className="w-3.5 h-3.5 text-slate-400" />
-                              {post.views || 0}
-                            </span>
-                          </div>
-                        </div>
-
-                        <Link href={`/blog/${post.id}`} className="block">
-                          <h3 className="text-lg font-bold text-white group-hover:text-blue-400 transition duration-200 line-clamp-2 leading-snug">
-                            {post.title}
-                          </h3>
-                        </Link>
-
-                        <p className="text-slate-400 text-sm leading-relaxed line-clamp-2">
-                          {post.description || ""}
-                        </p>
-                      </div>
-
-                      <div className="flex items-center justify-between pt-4 border-t border-white/5 text-xs">
-                        <span className="text-slate-400 font-medium">
-                          By {post.author?.name || "Anonymous"}
-                        </span>
-                        <Link
-                          href={`/blog/${post.id}`}
-                          className="inline-flex items-center gap-1.5 font-semibold text-blue-400 hover:text-blue-300 group-hover:translate-x-1 transition duration-200"
-                        >
-                          Read Story <span className="text-sm">→</span>
-                        </Link>
-                      </div>
-                    </div>
-                  </motion.article>
-                ))}
-              </div>
-            </motion.section>
-          ) : (
-            <div className="text-center py-16 bg-[#131b2e]/30 border border-dashed border-white/10 rounded-2xl text-slate-400">
-              <p className="text-sm font-medium">
-                No related Blogs found at the moment.
-              </p>
-            </div>
-          )}
-        </div>
+        <RelatedBlogs categoryId={categoryId} postId={post.id} />
       </main>
 
-      {/* Modals & Bottom Components */}
       <AnimatePresence>
         {isAuthModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">

@@ -18,22 +18,9 @@ import {
 } from "lucide-react";
 import Spinner from "@/components/home/Spinner";
 import { useSession } from "next-auth/react";
+import { formatTimeAgo } from "@/utils/formatTime";
+import { Post } from "@/types/post";
 
-interface Post {
-  id: string;
-  title: string;
-  content?: string;
-  description?: string;
-  coverImage?: string | null;
-  createdAt: string;
-  views?: number;
-  category?: {
-    name: string;
-  };
-  _count?: {
-    likes: number;
-  };
-}
 
 interface AuthorProfile {
   id: string;
@@ -67,7 +54,7 @@ export default function AuthorProfilePage({
   const { id } = use(params);
 
   const [author, setAuthor] = useState<AuthorProfile | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [isFollowing, setIsFollowing] = useState(false);
   const [activeFilter, setActiveFilter] = useState("ALL");
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -107,17 +94,18 @@ export default function AuthorProfilePage({
     if (status === "authenticated" && author?.id) {
       try {
         setFollowLoading(true);
+
         const res = await fetch("/api/follow-request", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ authorId: author.id }),
         });
+
         const data = await res.json();
 
         if (data.success) {
           setIsFollowing(data.isFollowing);
 
-          // Optimistically update follower count on local state
           setAuthor((prev) => {
             if (!prev) return prev;
             const currentFollowers = prev._count?.followers ?? 0;
@@ -146,10 +134,11 @@ export default function AuthorProfilePage({
     let posts = [...author.posts];
 
     if (activeFilter === "OLDER") {
-      return posts.sort(
-        (a, b) =>
-          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
-      );
+      return [...posts].sort((a, b) => {
+        const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return dateA - dateB;
+      });
     }
 
     if (activeFilter === "POPULAR") {
@@ -164,7 +153,7 @@ export default function AuthorProfilePage({
     return posts;
   }, [author?.posts, activeFilter]);
 
-  if (isLoading && status === "loading") {
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-[#0b1326] flex items-center justify-center">
         <div className="text-xl font-bold text-white font-manrope flex justify-center items-center gap-4">
@@ -392,17 +381,7 @@ export default function AuthorProfilePage({
                       <div className="p-6">
                         {/* Date & Stats Row (Likes & Views) */}
                         <div className="flex items-center justify-between text-xs text-slate-400 mb-3">
-                          <span>
-                            {post.createdAt
-                              ? new Date(post.createdAt).toLocaleDateString(
-                                  "en-US",
-                                  {
-                                    month: "short",
-                                    day: "numeric",
-                                  },
-                                )
-                              : ""}
-                          </span>
+                          <span>{formatTimeAgo(post.createdAt)}</span>
                           <div className="flex items-center gap-3">
                             <span className="flex items-center gap-1 text-slate-300">
                               <Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-500/20" />

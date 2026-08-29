@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Pencil, Trash2, ArrowUpRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RecentPostsProps } from "@/types/post";
+import { formatTimeAgo } from "@/utils/formatTime";
 
 export function RecentPosts({ posts }: RecentPostsProps) {
   if (!posts || posts.length === 0) {
@@ -62,11 +63,7 @@ export function RecentPosts({ posts }: RecentPostsProps) {
                     {post.published ? "Published" : "Draft"}
                   </span>
                   <span className="text-xs text-muted-foreground">
-                    {new Date(post.createdAt).toLocaleDateString("en-US", {
-                      day: "numeric",
-                      month: "short",
-                      year: "numeric",
-                    })}
+                    {formatTimeAgo(post.createdAt)}
                   </span>
                 </div>
 

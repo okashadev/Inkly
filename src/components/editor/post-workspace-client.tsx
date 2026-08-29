@@ -11,7 +11,7 @@ import "@blocknote/core/fonts/inter.css";
 import "@blocknote/shadcn/style.css";
 import { toast } from "sonner";
 import { useSession } from "next-auth/react";
-
+import { Menu } from "lucide-react";
 
 interface WorkspaceProps {
   user:
@@ -35,6 +35,7 @@ export default function InklyPostWorkspace({
   initialPostId,
 }: WorkspaceProps) {
   const [postId, setPostId] = useState<string | null>(initialPostId || null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const [formData, setFormData] = useState({
     title: "",
@@ -98,7 +99,7 @@ export default function InklyPostWorkspace({
           const post = resData.post;
 
           if (post.authorId !== session.user.id) {
-            toast.error("Access Denied: Yeh aapki post nahi hai!");
+            toast.error("Access Denied");
             router.push("/user/dashboard");
             return;
           }
@@ -131,8 +132,6 @@ export default function InklyPostWorkspace({
         });
     }
   }, [initialPostId, editor, session?.user?.id, status, router, isDataLoaded]);
-
-  //  console.log(categories);
 
   const handleEditorChange = () => {
     let totalText = "";
@@ -220,7 +219,6 @@ export default function InklyPostWorkspace({
       });
 
       const result = await response.json();
-      // console.log(result);
 
       if (result.success) {
         if (isPublishedStatus) {
@@ -251,13 +249,26 @@ export default function InklyPostWorkspace({
 
   return (
     <div className="bg-[#0b1326] text-[#dae2fd] min-h-screen font-sans antialiased">
-      <AppSidebar />
+      <AppSidebar
+        isOpen={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
+      />
 
       {/* Navbar */}
       <nav className="fixed left-0 right-0 top-0 z-40 flex h-20 items-center justify-between border-b border-white/5 bg-[#0b1326]/80 px-6 backdrop-blur-xl md:left-64 md:px-12">
-        <span className="text-xs bg-slate-800 text-slate-400 px-2.5 py-1 rounded-md uppercase font-semibold">
-          Workspace
-        </span>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setIsSidebarOpen(true)}
+            className="rounded-xl p-2 text-slate-400 hover:bg-slate-800 hover:text-white md:hidden"
+            aria-label="Open sidebar"
+          >
+            <Menu className="h-6 w-6" />
+          </button>
+          <span className="text-xs bg-slate-800 text-slate-400 px-2.5 py-1 rounded-md uppercase font-semibold">
+            Workspace
+          </span>
+        </div>
         <div className="flex items-center gap-4">
           <button
             type="button"

@@ -213,12 +213,14 @@ export default function Navbar() {
                     transition={{ duration: 0.15, ease: "easeOut" }}
                     className="absolute right-0 mt-2 w-56 rounded-2xl bg-[#171f33] border border-white/15 p-2 shadow-2xl z-50 text-[#dae2fd]"
                   >
-                    <div className="px-3 py-2 text-xs font-semibold text-slate-300 uppercase tracking-wider line-clamp-1">
-                      {session?.user?.name}
-                    </div>
-                    <p className="px-3 text-xs text-slate-400 lowercase line-clamp-1">
-                      {session?.user?.email}
-                    </p>
+                    <Link href={`/authors/profile/${session?.user?.id}`}>
+                      <div className="px-3 py-2 text-xs font-semibold text-slate-300 uppercase tracking-wider line-clamp-1">
+                        {session?.user?.name}
+                      </div>
+                      <p className="px-3 text-xs text-slate-400 lowercase line-clamp-1">
+                        {session?.user?.email}
+                      </p>
+                    </Link>
 
                     <div className="my-1.5 h-px bg-white/10" />
 
@@ -352,13 +354,15 @@ export default function Navbar() {
               {session ? (
                 <div className="flex flex-col gap-2">
                   <div className="flex items-center gap-3 px-2 py-1">
-                    <Image
-                      src={session?.user?.image || "/images/userImage.webp"}
-                      alt="User Avatar"
-                      width={36}
-                      height={36}
-                      className="rounded-full object-cover"
-                    />
+                    <Link href={`/authors/profile/${session?.user?.id}`}>
+                      <Image
+                        src={session?.user?.image || "/images/userImage.webp"}
+                        alt="User Avatar"
+                        width={36}
+                        height={36}
+                        className="rounded-full object-cover"
+                      />
+                    </Link>
                     <div className="overflow-hidden">
                       <p className="text-sm font-bold text-white truncate">
                         {session?.user?.name}

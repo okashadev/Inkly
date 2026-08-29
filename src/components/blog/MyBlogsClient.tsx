@@ -5,22 +5,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import Image from "next/image";
 import { toast } from "sonner";
-
-// Types
-interface Post {
-  id: string;
-  title: string;
-  slug: string;
-  description: string | null;
-  coverImage: string | null;
-  readingTime: number;
-  published: boolean;
-  views: number;
-  createdAt: string;
-  category: {
-    name: string;
-  };
-}
+import { Post } from "@/types/post";
+import { formatTimeAgo } from "@/utils/formatTime";
 
 interface Stats {
   totalBlogs: number;
@@ -72,8 +58,6 @@ export default function MyBlogsClient() {
       const res = await fetch(url);
       const data = await res.json();
 
-      console.log(data);
-
       if (data.success) {
         setPosts(data.posts);
         setStats(data.stats);
@@ -85,7 +69,6 @@ export default function MyBlogsClient() {
     }
   };
 
-  // Search Debounce & Tab Refresh Logic
   useEffect(() => {
     const timer = setTimeout(() => {
       fetchBlogs();
@@ -370,11 +353,8 @@ export default function MyBlogsClient() {
               <div className="p-6 pt-0">
                 <div className="pt-4 border-t border-white/5 flex justify-between text-xs text-gray-400">
                   <span>
-                    {new Date(post.createdAt).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                    })}{" "}
-                    • {post.readingTime} min read
+                    {formatTimeAgo(post.createdAt)} • {post.readingTime} min
+                    read
                   </span>
                   <span>{post.views} views</span>
                 </div>

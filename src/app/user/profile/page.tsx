@@ -2,22 +2,28 @@
 
 import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
-import { AppSidebar } from "@/components/dashboard/app-sidebar";
-import { TopNav } from "@/components/dashboard/top-nav";
+import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { useSession } from "next-auth/react";
 import Spinner from "@/components/home/Spinner";
 import Image from "next/image";
-import { HiCamera, HiTrash, HiArrowUpTray, HiUser } from "react-icons/hi2";
+import {
+  HiCamera,
+  HiTrash,
+  HiArrowUpTray,
+  HiArrowTopRightOnSquare,
+} from "react-icons/hi2";
+import { User } from "@/types/user";
+import Link from "next/link";
 
 export default function ProfilePage() {
   const { data: session, status, update } = useSession();
-  const user = session?.user;
+  const user = session?.user as User;
 
   const [name, setName] = useState("");
   const [username, setUsername] = useState("");
   const [bio, setBio] = useState("");
   const [image, setImage] = useState("");
-  
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -111,34 +117,38 @@ export default function ProfilePage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0B132B] text-[#F8FAFC]">
-      <AppSidebar />
-      <TopNav user={user} />
-
-      <main className="lg:pl-64 pt-20 transition-all duration-300 min-h-screen">
+    <DashboardShell user={user}>
+      <main className="pt-20 md:pl-64 transition-all duration-300 min-h-screen">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 md:px-10 py-10 space-y-10">
-          
-          {/* Header */}
           <motion.section
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4 }}
-            className="border-b border-white/10 pb-6"
+            className="border-b border-white/10 pb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
           >
-            <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white mb-2 flex items-center gap-3">
-              Public Profile
-            </h1>
-            <p className="text-slate-400 text-sm sm:text-base">
-              Update your photo, bio, and public author details.
-            </p>
+            <div>
+              <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white mb-2 flex items-center gap-3">
+                Profile Edit
+              </h1>
+              <p className="text-slate-400 text-sm sm:text-base">
+                Update your photo, bio, and public author details.
+              </p>
+            </div>
+
+            <Link
+              href={`/authors/profile/${user?.id}`}
+              target="_blank"
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-[#1C2745] hover:bg-[#223055] text-slate-200 hover:text-white border border-white/10 rounded-xl text-xs font-semibold transition active:scale-95 shrink-0"
+            >
+              <span>View Profile</span>
+              <HiArrowTopRightOnSquare className="w-4 h-4 text-slate-400 group-hover:text-white" />
+            </Link>
           </motion.section>
 
-          {/* Profile Form */}
           <form
             onSubmit={handleSubmit}
             className="bg-[#131C35]/60 p-6 sm:p-8 rounded-2xl border border-white/10 backdrop-blur-sm space-y-6"
           >
-            {/* Feedback Messages */}
             {error && (
               <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-400 text-xs rounded-xl">
                 {error}
@@ -178,7 +188,9 @@ export default function ProfilePage() {
 
               <div className="space-y-3">
                 <div>
-                  <h4 className="font-semibold text-sm text-white">Profile Photo</h4>
+                  <h4 className="font-semibold text-sm text-white">
+                    Profile Photo
+                  </h4>
                   <p className="text-slate-400 text-xs mt-0.5">
                     JPG, PNG or WEBP. Max size 800KB.
                   </p>
@@ -188,7 +200,7 @@ export default function ProfilePage() {
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-semibold transition active:scale-95 shadow-md shadow-blue-500/20"
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-semibold transition active:scale-95 shadow-md shadow-blue-500/20 cursor-pointer"
                   >
                     <HiArrowUpTray className="w-4 h-4" />
                     Upload New
@@ -196,7 +208,7 @@ export default function ProfilePage() {
                   <button
                     type="button"
                     onClick={handleRemoveImage}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-xl text-xs font-semibold transition border border-red-500/20"
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-xl text-xs font-semibold transition border border-red-500/20 cursor-pointer"
                   >
                     <HiTrash className="w-4 h-4" />
                     Remove
@@ -208,7 +220,9 @@ export default function ProfilePage() {
             {/* Form Fields */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-slate-300">Full Name</label>
+                <label className="text-xs font-medium text-slate-300">
+                  Full Name
+                </label>
                 <input
                   type="text"
                   required
@@ -220,7 +234,9 @@ export default function ProfilePage() {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-slate-300">Username</label>
+                <label className="text-xs font-medium text-slate-300">
+                  Username
+                </label>
                 <input
                   type="text"
                   required
@@ -247,15 +263,14 @@ export default function ProfilePage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-semibold uppercase tracking-wider transition active:scale-95 shadow-md shadow-blue-500/20 disabled:opacity-50 flex items-center gap-2"
+                className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-semibold uppercase tracking-wider transition active:scale-95 shadow-md shadow-blue-500/20 disabled:opacity-50 flex items-center gap-2 cursor-pointer"
               >
                 {loading ? <Spinner /> : "Save Profile"}
               </button>
             </div>
           </form>
-
         </div>
       </main>
-    </div>
+    </DashboardShell>
   );
 }

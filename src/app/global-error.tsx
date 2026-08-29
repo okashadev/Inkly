@@ -7,7 +7,6 @@ export default function GlobalError({
 }) {
   const pathname = typeof window !== 'undefined' ? window.location.pathname : ''
 
-  // Log the error to the console so it will be forwarded to server logs and captured by auto-fix
   console.error(error)
 
   return (

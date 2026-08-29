@@ -1,12 +1,16 @@
 export interface User {
   id: string;
   name?: string | null;
-  username: string;
+  username?: string;
   email: string;
   image?: string | null;
   bio?: string | null;
   createdAt: string | Date;
   updatedAt: string | Date;
+  _count?: {
+    posts: number;
+    followers: number;
+  };
 }
 
 export interface UserStats {

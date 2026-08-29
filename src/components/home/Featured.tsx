@@ -5,17 +5,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { ArrowUpRight, Heart, Eye, MessageSquare } from "lucide-react";
 import Spinner from "@/components/home/Spinner";
-
-interface Post {
-  id: string;
-  title: string;
-  description?: string;
-  content?: string;
-  coverImage?: string | null;
-  createdAt: string;
-  category?: { name: string } | string;
-  _count?: { likes: number; comments: number };
-}
+import { Post } from "@/types/post";
+import { formatTimeAgo } from "@/utils/formatTime";
 
 export default function Featured() {
   const [posts, setPosts] = useState<Post[]>([]);
@@ -102,15 +93,7 @@ export default function Featured() {
                   <div className="p-6">
                     <div className="flex items-center justify-between text-xs text-slate-400 mb-3">
                       <span>
-                        {post.createdAt
-                          ? new Date(post.createdAt).toLocaleDateString(
-                              "en-US",
-                              {
-                                month: "short",
-                                day: "numeric",
-                              },
-                            )
-                          : ""}
+                        {formatTimeAgo(post.createdAt)}
                       </span>
                       <div className="flex items-center gap-3">
                         <span className="flex items-center gap-1 text-slate-300">

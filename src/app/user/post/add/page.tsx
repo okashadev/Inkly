@@ -4,7 +4,6 @@ import dynamic from "next/dynamic";
 import EditorLoading from "@/components/editor-loading";
 import { useSession } from "next-auth/react";
 
-// This forces Next.js to skip server processing for the entire screen asset
 const InklyPostWorkspace = dynamic(
   () => import("@/components/editor/post-workspace-client"),
   {

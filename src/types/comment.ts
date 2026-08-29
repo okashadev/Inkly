@@ -1,3 +1,4 @@
+import { Post } from "./post";
 import { User } from "./user";
 
 export interface Comment {
@@ -8,4 +9,5 @@ export interface Comment {
   authorId: string;
   author?: User;
   postId: string;
+  post?: Post;
 }

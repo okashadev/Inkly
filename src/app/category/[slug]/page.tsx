@@ -15,6 +15,8 @@ import {
   HiFolder, 
   HiCalendar 
 } from "react-icons/hi2";
+import { Post } from "@/types/post";
+import { formatTimeAgo } from "@/utils/formatTime";
 
 interface PostAuthor {
   id: string;
@@ -27,21 +29,21 @@ interface PostCount {
   likes: number;
 }
 
-interface Post {
-  id: string;
-  title: string;
-  content: string;
-  description?: string;
-  views?: number;
-  category?: {
-    name: string;
-    slug: string;
-  };
-  coverImage?: string | null;
-  createdAt: string;
-  author: PostAuthor;
-  _count: PostCount;
-}
+// interface Post {
+//   id: string;
+//   title: string;
+//   content: string;
+//   description?: string;
+//   views?: number;
+//   category?: {
+//     name: string;
+//     slug: string;
+//   };
+//   coverImage?: string | null;
+//   createdAt: string;
+//   author: PostAuthor;
+//   _count: PostCount;
+// }
 
 const container = {
   hidden: { opacity: 0 },
@@ -69,7 +71,7 @@ interface CategoryPageProps {
 export default function CategoryPage({ params }: CategoryPageProps) {
   const { slug } = use(params);
 
-  const [posts, setPosts] = useState<Post[]>([]);
+  const [posts, setPosts] = useState<Post[] | null>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -140,7 +142,7 @@ return (
               <span>Fetching articles...</span>
             </div>
           </div>
-        ) : error || posts.length === 0 ? (
+        ) : error || posts?.length === 0 ? (
           <div className="min-h-75 flex flex-col items-center justify-center text-center p-8 bg-[#131b2e]/40 rounded-3xl border border-white/10 max-w-lg mx-auto">
             <HiFolder className="w-12 h-12 text-slate-600 mb-3" />
             <h3 className="text-lg font-bold text-white mb-1">No Articles Found</h3>
@@ -154,7 +156,7 @@ return (
             animate="show"
             className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
           >
-            {posts.map((post) => (
+            {posts?.map((post) => (
               <motion.div key={post.id} variants={item}>
                 <PostCard post={post} />
               </motion.div>
@@ -201,11 +203,7 @@ function PostCard({ post }: { post: Post }) {
             <div className="flex items-center gap-1.5">
               <HiCalendar className="w-4 h-4 text-slate-500" />
               <span>
-                {new Date(post.createdAt).toLocaleDateString("en-US", {
-                  month: "short",
-                  day: "numeric",
-                  year: "numeric",
-                })}
+                {formatTimeAgo(post.createdAt)}
               </span>
             </div>
 

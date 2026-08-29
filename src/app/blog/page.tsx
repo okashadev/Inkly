@@ -10,33 +10,8 @@ import CTA from "@/components/home/CTA";
 import Spinner from "@/components/home/Spinner";
 import { useEffect, useState } from "react";
 import { Heart, Eye, MessageSquare, Loader2 } from "lucide-react";
-
-interface PostAuthor {
-  id: string;
-  name: string | null;
-  image: string | null;
-  username: string | null;
-}
-
-interface PostCount {
-  likes: number;
-  comments: number;
-}
-
-interface Post {
-  id: string;
-  title: string;
-  content: string;
-  description?: string;
-  views?: number;
-  category?: {
-    name: string;
-  };
-  coverImage?: string | null;
-  createdAt: string;
-  author: PostAuthor;
-  _count: PostCount;
-}
+import { Post } from "@/types/post";
+import { formatTimeAgo } from "@/utils/formatTime";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -198,7 +173,7 @@ export default function BlogsPage() {
                       No Cover Image
                     </span>
                   )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#0b1326]/60 via-transparent to-transparent lg:hidden" />
+                  <div className="absolute inset-0 bg-linear-to-t from-[#0b1326]/60 via-transparent to-transparent lg:hidden" />
                 </div>
 
                 <div className="lg:col-span-5 p-6 sm:p-10 flex flex-col justify-between space-y-6">
@@ -245,23 +220,16 @@ export default function BlogsPage() {
 
                     <div className="flex items-center gap-3">
                       <span>
-                        {new Date(featuredPost.createdAt).toLocaleDateString(
-                          "en-US",
-                          {
-                            month: "short",
-                            day: "numeric",
-                            year: "numeric",
-                          },
-                        )}
+                        {formatTimeAgo(featuredPost.createdAt)}
                       </span>
                       <span>•</span>
                       <span className="flex items-center gap-1">
                         <Heart className="w-3.5 h-3.5 text-rose-400 fill-rose-400/20" />
-                        {featuredPost._count.likes}
+                        {featuredPost._count?.likes}
                       </span>
                       <span className="flex items-center gap-1">
                         <MessageSquare className="w-3.5 h-3.5 text-blue-400" />
-                        {featuredPost._count.comments}
+                        {featuredPost._count?.comments}
                       </span>
                       <span className="flex items-center gap-1">
                         <Eye className="w-3.5 h-3.5 text-slate-400" />
@@ -316,22 +284,16 @@ export default function BlogsPage() {
                     <div className="space-y-3">
                       <div className="flex items-center justify-between text-xs text-slate-400">
                         <span>
-                          {new Date(post.createdAt).toLocaleDateString(
-                            "en-US",
-                            {
-                              month: "short",
-                              day: "numeric",
-                            },
-                          )}
+                          {formatTimeAgo(post.createdAt)}
                         </span>
                         <div className="flex items-center gap-2.5">
                           <span className="flex items-center gap-1">
                             <Heart className="w-3.5 h-3.5 text-rose-400 fill-rose-400/20" />
-                            {post._count.likes}
+                            {post._count?.likes}
                           </span>
                           <span className="flex items-center gap-1">
                             <MessageSquare className="w-3.5 h-3.5 text-blue-400" />
-                            {post._count.comments}
+                            {post._count?.comments}
                           </span>
                           <span className="flex items-center gap-1">
                             <Eye className="w-3.5 h-3.5 text-slate-400" />
@@ -370,7 +332,6 @@ export default function BlogsPage() {
               ))}
             </div>
 
-            {/* Load More Action Button */}
             {hasMore && (
               <motion.div
                 variants={fadeUpVariants}

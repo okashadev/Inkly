@@ -1,6 +1,5 @@
 "use client";
-import { AppSidebar } from "@/components/dashboard/app-sidebar";
-import { TopNav } from "@/components/dashboard/top-nav";
+
 import { StatsCards } from "@/components/dashboard/stats-cards";
 import { RecentPosts } from "@/components/dashboard/recent-posts";
 import { QuickActions } from "@/components/dashboard/quick-actions";
@@ -11,6 +10,7 @@ import Spinner from "@/components/home/Spinner";
 import { useRouter } from "next/navigation";
 import { Post } from "@/types/post";
 import { User, UserStats } from "@/types/user";
+import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 
 export default function DashboardPage() {
   const [recentPost, setRecentPost] = useState<Post[] | null>(null);
@@ -25,13 +25,12 @@ export default function DashboardPage() {
         const res = await fetch("/api/dashboard", {
           method: "GET",
         });
-        console.log(res);
+
         if (res.status === 401) {
           router.push("/login");
           return;
         } else if (res.status === 200) {
           const resData = await res.json();
-          console.log(resData);
           if (resData.success) {
             setUser(resData.data?.user);
             setRecentPost(resData.data?.recentPosts);
@@ -46,9 +45,7 @@ export default function DashboardPage() {
     }
 
     getUserData();
-  }, []);
-
-  console.log(stats);
+  }, [router]);
 
   if (loading) {
     return (
@@ -62,10 +59,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <AppSidebar />
-      <TopNav user={user} />
-
+    <DashboardShell user={user}>
       <main className="grid min-h-screen grid-cols-1 gap-8 px-6 pb-12 pt-22 md:pl-72 md:pr-12 lg:grid-cols-12">
         <div className="space-y-8 lg:col-span-8">
           <section className="flex flex-col justify-between gap-4 rounded-2xl border border-outline-variant/10 bg-surface-container-low p-6 md:p-8">
@@ -96,6 +90,6 @@ export default function DashboardPage() {
           <QuickActions />
         </aside>
       </main>
-    </div>
+    </DashboardShell>
   );
 }
