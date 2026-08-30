@@ -18,6 +18,9 @@ export async function POST(request: Request) {
 
     if (isInitialLoad) {
       featuredPost = await db.post.findFirst({
+        where: {
+          published: true,
+        },
         orderBy: [
           { likes: { _count: "desc" } },
           { comments: { _count: "desc" } },
@@ -40,7 +43,10 @@ export async function POST(request: Request) {
 
     if (!userId) {
       rawPosts = await db.post.findMany({
-        where: { id: { notIn: excludeIds } },
+        where: {
+          published: true,
+          id: { notIn: excludeIds },
+        },
         take: limit,
         orderBy: [{ createdAt: "desc" }, { id: "desc" }],
         include: {
@@ -62,6 +68,7 @@ export async function POST(request: Request) {
       if (followingIds.length > 0) {
         followedPosts = await db.post.findMany({
           where: {
+            published: true,
             id: { notIn: excludeIds },
             authorId: { in: followingIds },
           },
@@ -83,7 +90,10 @@ export async function POST(request: Request) {
       let remainingPosts: any[] = [];
       if (remainingTake > 0) {
         remainingPosts = await db.post.findMany({
-          where: { id: { notIn: currentExclude } },
+          where: {
+            published: true,
+            id: { notIn: currentExclude },
+          },
           take: remainingTake,
           orderBy: [{ createdAt: "desc" }, { id: "desc" }],
           include: {
@@ -101,7 +111,10 @@ export async function POST(request: Request) {
 
     const fetchedIds = [...excludeIds, ...rawPosts.map((p) => p.id)];
     const remainingCount = await db.post.count({
-      where: { id: { notIn: fetchedIds } },
+      where: {
+        published: true,
+        id: { notIn: fetchedIds },
+      },
     });
 
     return NextResponse.json(
