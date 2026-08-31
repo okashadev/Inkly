@@ -1,15 +1,18 @@
 "use client";
 
+import { AuthActionType } from "@/components/modals/AuthModal";
 import { useState, useEffect } from "react";
+import { toast } from "sonner";
 
 interface Props {
   postId: string;
   postTitle: string;
   status: string;
-  totalLikes: number; 
+  totalLikes: number;
   liked: boolean;
+  saved: boolean;
   commentCount?: number;
-  onAuthRequired?: () => void;
+  onAuthRequired?: (actionType: AuthActionType) => void;
 }
 
 const InteractionBar = ({
@@ -19,28 +22,55 @@ const InteractionBar = ({
   commentCount,
   totalLikes = 0,
   liked = false,
+  saved = false,
   onAuthRequired,
 }: Props) => {
-  const [isLiked, setIsLiked] = useState<boolean>(liked);
   const [likeCount, setLikeCount] = useState<number>(totalLikes);
-  const [isSaved, setIsSaved] = useState(false);
+  const [isLiked, setIsLiked] = useState<boolean>(liked);
+  const [isSaved, setIsSaved] = useState(saved);
 
   useEffect(() => {
     setIsLiked(liked);
+    setIsSaved(saved);
     setLikeCount(totalLikes);
-  }, [liked, totalLikes]);
+  }, [liked, saved, totalLikes]);
 
-  const handleSaveClick = () => {
+  const handleSaveClick = async () => {
     if (status === "unauthenticated") {
-      onAuthRequired?.();
+      onAuthRequired?.("save");
       return;
     }
-    setIsSaved(!isSaved);
+
+    if (!postId) return;
+
+    const previousIsSaved = isSaved;
+    setIsSaved(!previousIsSaved);
+
+    try {
+      const res = await fetch("/api/post/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ postId }),
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        setIsSaved(data.isSaved);
+      } else {
+        setIsSaved(previousIsSaved);
+        toast.error(data.message || "Failed to update bookmark");
+      }
+    } catch (err: any) {
+      console.error("Failed to toggle Save:", err);
+      setIsSaved(previousIsSaved);
+      toast.error("Something went wrong!");
+    }
   };
 
   const handleLikeClick = async () => {
     if (status === "unauthenticated") {
-      onAuthRequired?.();
+      onAuthRequired?.("like");
       return;
     }
     if (!postId) return;
@@ -90,6 +120,13 @@ const InteractionBar = ({
     }
   };
 
+  const handleCommentClick = async () => {
+    if (status === "unauthenticated") {
+      onAuthRequired?.("comment");
+      return;
+    }
+  };
+
   return (
     <div className="my-10 py-4 px-6 bg-[#131b2e]/60 border border-white/10 rounded-2xl flex items-center justify-between gap-4 backdrop-blur-md">
       <div className="flex items-center gap-4 sm:gap-6">
@@ -118,6 +155,7 @@ const InteractionBar = ({
         <a
           href="#comments-section"
           className="flex items-center gap-2 text-sm font-semibold text-slate-400 hover:text-white transition"
+          onClick={handleCommentClick}
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"

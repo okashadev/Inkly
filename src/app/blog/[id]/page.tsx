@@ -1,20 +1,21 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
+import AuthModal, { AuthActionType } from "@/components/modals/AuthModal";
+import CommentSection from "@/components/blog/view/CommentSection";
+import InteractionBar from "@/components/blog/view/InteractionBar";
+import RelatedBlogs from "@/components/blog/view/RelatedBlogs";
+import AuthorBio from "@/components/blog/view/AuthorBio";
 import { AnimatePresence, motion } from "framer-motion";
-import Image from "next/image";
-import Link from "next/link";
+import { UserCheck, UserPlus } from "lucide-react";
+import { formatTimeAgo } from "@/utils/formatTime";
+import { use, useEffect, useState } from "react";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import { useSession } from "next-auth/react";
 import CTA from "@/components/home/CTA";
-import { UserCheck, UserPlus } from "lucide-react";
-import { formatTimeAgo } from "@/utils/formatTime";
 import { Post } from "@/types/post";
-import CommentSection from "@/components/blog/view/CommentSection";
-import RelatedBlogs from "@/components/blog/view/RelatedBlogs";
-import InteractionBar from "@/components/blog/view/InteractionBar";
-import AuthorBio from "@/components/blog/view/AuthorBio";
+import Image from "next/image";
+import Link from "next/link";
 
 export default function BlogPage({
   params,
@@ -27,14 +28,22 @@ export default function BlogPage({
   const [post, setPost] = useState<Post | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const [error, setError] = useState<string | null>(null);
-  const [isFollowing, setIsFollowing] = useState(false);
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [commentCount, setCommentCount] = useState<number>(0);
   const [followLoading, setFollowLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [categoryId, setCategoryId] = useState("");
-
-  const [isLiked, setIsLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
+
+  const [authAction, setAuthAction] = useState<AuthActionType>("generic");
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [isLiked, setIsLiked] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
+
+  const triggerAuthRequired = (action: AuthActionType) => {
+    setAuthAction(action);
+    setIsAuthModalOpen(true);
+  };
 
   useEffect(() => {
     async function fetchPost() {
@@ -42,14 +51,20 @@ export default function BlogPage({
         setLoading(true);
         const res = await fetch(`/api/post/get?id=${id}`);
         const data = await res.json();
+        console.log(data);
 
         if (data.success && data.post) {
           setPost(data.post);
           setLikeCount(data.post._count?.likes ?? 0);
+          setCommentCount(data.post._count?.comments ?? 0);
           setCategoryId(data.post?.category?.id);
 
           if (typeof data.isLiked === "boolean") {
             setIsLiked(data.isLiked);
+          }
+
+          if (typeof data.isSaved === "boolean") {
+            setIsSaved(data.isSaved);
           }
 
           if (typeof data.isFollowing === "boolean") {
@@ -103,7 +118,7 @@ export default function BlogPage({
 
   const handleFollowClick = async () => {
     if (status === "unauthenticated") {
-      setIsAuthModalOpen(true);
+      triggerAuthRequired("follow");
       return;
     }
 
@@ -161,6 +176,10 @@ export default function BlogPage({
       return () => clearTimeout(timer);
     }
   }, [loading]);
+
+  const handleCommentAdded = () => {
+    setCommentCount((prev) => prev + 1);
+  };
 
   const isOwnPost =
     session?.user?.id && post?.author?.id && session.user.id === post.author.id;
@@ -342,10 +361,11 @@ export default function BlogPage({
               postId={post.id}
               postTitle={post.title}
               liked={isLiked}
+              saved={isSaved}
               totalLikes={likeCount}
-              commentCount={post._count?.comments}
+              commentCount={commentCount}
               status={status}
-              onAuthRequired={() => setIsAuthModalOpen(true)}
+              onAuthRequired={triggerAuthRequired}
             />
 
             <AuthorBio
@@ -359,7 +379,8 @@ export default function BlogPage({
             <CommentSection
               postId={post.id}
               status={status}
-              onAuthRequired={() => setIsAuthModalOpen(true)}
+              onAuthRequired={triggerAuthRequired}
+              onCommentAdded={handleCommentAdded}
             />
           </div>
 
@@ -402,56 +423,12 @@ export default function BlogPage({
         <RelatedBlogs categoryId={categoryId} postId={post.id} />
       </main>
 
-      <AnimatePresence>
-        {isAuthModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-[#131b2e] border border-white/10 rounded-2xl p-6 sm:p-8 max-w-md w-full shadow-2xl relative text-center"
-            >
-              <button
-                onClick={() => setIsAuthModalOpen(false)}
-                className="absolute top-4 right-4 text-slate-400 hover:text-white transition"
-              >
-                ✕
-              </button>
-
-              <div className="w-12 h-12 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-4 text-xl">
-                👤
-              </div>
-
-              <h3 className="text-xl font-bold text-white mb-2">
-                Join Inkly to Follow
-              </h3>
-
-              <p className="text-sm text-slate-400 mb-6 leading-relaxed">
-                You need an account to follow{" "}
-                <span className="text-slate-200 font-semibold">
-                  {post.author?.name}
-                </span>{" "}
-                and get notified when they publish new stories.
-              </p>
-
-              <div className="flex flex-col gap-3">
-                <Link
-                  href="/login"
-                  className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-semibold text-sm transition duration-200"
-                >
-                  Log In
-                </Link>
-                <Link
-                  href="/register"
-                  className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-white/10 rounded-xl font-semibold text-sm transition duration-200"
-                >
-                  Create Account
-                </Link>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        actionType={authAction}
+        authorName={post.author?.name || "Author"}
+      />
 
       {status === "unauthenticated" && <CTA />}
 

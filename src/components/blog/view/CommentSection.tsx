@@ -1,4 +1,5 @@
 "use client";
+import { AuthActionType } from "@/components/modals/AuthModal";
 import { Comment } from "@/types/comment";
 import { formatTimeAgo } from "@/utils/formatTime";
 import Image from "next/image";
@@ -7,13 +8,15 @@ import { useEffect, useState } from "react";
 interface CommentSectionProps {
   postId: string;
   status: string;
-  onAuthRequired?: () => void;
+  onAuthRequired?: (actionType: AuthActionType) => void;
+  onCommentAdded?: () => void;
 }
 
 const CommentSection = ({
   postId,
   status,
   onAuthRequired,
+  onCommentAdded,
 }: CommentSectionProps) => {
   const [isCommentSubmitLoading, setIsCommentSubmitLoading] = useState(false);
   const [comments, setComments] = useState<Comment[]>([]);
@@ -40,7 +43,8 @@ const CommentSection = ({
     e.preventDefault();
 
     if (status === "unauthenticated") {
-      onAuthRequired?.();
+      onAuthRequired?.("comment");
+      setCommentInput("")
       return;
     }
 
@@ -62,6 +66,7 @@ const CommentSection = ({
       if (data.success) {
         setComments((prev) => [data.comment, ...prev]);
         setCommentInput("");
+        onCommentAdded?.();
       }
     } catch (err) {
       console.error("Failed to post comment:", err);

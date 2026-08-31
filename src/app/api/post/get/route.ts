@@ -49,6 +49,8 @@ export async function GET(request: Request) {
     }
 
     let isFollowing = false;
+    let isLiked = false;
+    let isSaved = false;
 
     if (currentUserId && post.author?.id) {
       const followRecord = await db.follow.findFirst({
@@ -61,11 +63,9 @@ export async function GET(request: Request) {
       isFollowing = !!followRecord;
     }
 
-    let isLiked = false;
-
     if (currentUserId && post.author?.id) {
       const likesRecord = await db.like.findFirst({
-        where:{
+        where: {
           userId: currentUserId,
           postId: post.id,
         },
@@ -74,12 +74,24 @@ export async function GET(request: Request) {
       isLiked = !!likesRecord;
     }
 
+    if (currentUserId && post.author?.id) {
+      const savedRecord = await db.savedPost.findFirst({
+        where: {
+          userId: currentUserId,
+          postId: post.id,
+        },
+      });
+
+      isSaved = !!savedRecord;
+    }
+
     return NextResponse.json(
       {
         success: true,
         post,
         isFollowing,
         isLiked,
+        isSaved,
       },
       { status: 200 },
     );
