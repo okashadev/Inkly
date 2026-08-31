@@ -287,7 +287,7 @@ export default function BlogPage({
                   <p className="text-xs text-slate-400">
                     {formatTimeAgo(post.createdAt)} • {post.readingTime || 5}{" "}
                     min read
-                    {(post.views ?? 0) > 0 && ` • ${post.views} views`}
+                    {post.views != null ? ` • ${post.views} views` : ` • 0 views`}
                   </p>
                 </div>
                 <div>

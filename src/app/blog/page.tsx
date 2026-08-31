@@ -101,7 +101,9 @@ export default function BlogsPage() {
           }
           return updated;
         });
-        toast.success("Article Saved!");
+      }
+      if (data.message) {
+        toast.success(data.message);
       }
     } catch (error: any) {
       console.error("Failed to toggle Save:", error);
@@ -123,6 +125,10 @@ export default function BlogsPage() {
         if (data.success) {
           setFeaturedPost(data.featuredPost || null);
           setPosts(data.posts || []);
+
+          if (data.savedPostIds && Array.isArray(data.savedPostIds)) {
+            setSavedPostIds(new Set(data.savedPostIds));
+          }
         }
       } catch (err) {
         console.error("Failed to fetch feed posts:", err);
@@ -165,6 +171,14 @@ export default function BlogsPage() {
           );
           return [...prevPosts, ...uniqueNewPosts];
         });
+
+        if (data.savedPostIds && Array.isArray(data.savedPostIds)) {
+          setSavedPostIds((prev) => {
+            const updated = new Set(prev);
+            data.savedPostIds.forEach((id: string) => updated.add(id));
+            return updated;
+          });
+        }
       } else {
         setHasMore(false);
       }

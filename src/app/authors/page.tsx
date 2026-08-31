@@ -12,6 +12,7 @@ import {
   Users,
   Sparkles,
   Loader2,
+  UserX,
 } from "lucide-react";
 
 interface Author {
@@ -129,11 +130,19 @@ export default function AuthorsPage() {
               <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
             </div>
           ) : authors.length === 0 ? (
-            <div className="text-center py-16 bg-[#0b132b]/40 rounded-2xl border border-white/5">
-              <p className="text-slate-400 text-base">
-                {search
+            <div className="text-center py-16 px-4 bg-[#0b132b]/40 rounded-2xl border border-white/5 max-w-lg mx-auto flex flex-col items-center gap-3">
+              <div className="w-12 h-12 rounded-full bg-slate-800/80 flex items-center justify-center text-slate-400">
+                <UserX className="w-6 h-6" />
+              </div>
+              <p className="text-slate-300 font-medium text-base">
+                {search.trim()
                   ? `No authors found matching "${search}"`
-                  : "No authors available."}
+                  : "No recommended authors available right now"}
+              </p>
+              <p className="text-slate-500 text-xs">
+                {search.trim()
+                  ? "Double check spelling or try searching for another username."
+                  : "Check back later for new creator suggestions!"}
               </p>
             </div>
           ) : (

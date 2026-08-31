@@ -1,3 +1,4 @@
+import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
 
@@ -27,17 +28,25 @@ export async function GET(request: Request) {
             },
           },
         },
-        take: 10, // Search results Limit (aap scroll / adjust kar sakte hain)
+        take: 10,
       });
 
       return NextResponse.json(searchedAuthors);
     }
 
-    const count = await db.user.count();
-    const take = 6;
+    const session = await auth();
+    const currentUserId = session?.user?.id;
+
+    const whereCondition = currentUserId ? { id: { not: currentUserId } } : {};
+
+    const count = await db.user.count({
+      where: whereCondition,
+    });
+    const take = 3;
     const skip = Math.max(0, Math.floor(Math.random() * (count - take)));
 
     const randomAuthors = await db.user.findMany({
+      where: whereCondition,
       take: take,
       skip: skip,
       select: {

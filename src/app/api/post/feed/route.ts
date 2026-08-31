@@ -7,7 +7,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     const limit = parseInt(body.limit || "6", 10);
     const excludeIds: string[] = Array.isArray(body.excludeIds)
-      ? body.excludeIds
+      ? [...body.excludeIds]
       : [];
     const isInitialLoad = excludeIds.length === 0;
 
@@ -109,6 +109,16 @@ export async function POST(request: Request) {
       rawPosts = [...followedPosts, ...remainingPosts];
     }
 
+    let userSavedPostIds: string[] = [];
+
+    if (userId) {
+      const savedPosts = await db.savedPost.findMany({
+        where: { userId },
+        select: { postId: true },
+      });
+      userSavedPostIds = savedPosts.map((sp) => sp.postId);
+    }
+
     const fetchedIds = [...excludeIds, ...rawPosts.map((p) => p.id)];
     const remainingCount = await db.post.count({
       where: {
@@ -122,6 +132,7 @@ export async function POST(request: Request) {
         success: true,
         featuredPost,
         posts: rawPosts,
+        savedPostIds: userSavedPostIds,
         hasMore: remainingCount > 0,
       },
       { status: 200 },

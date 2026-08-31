@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
         {
           success: true,
           isSaved: false,
-          message: "Post removed from bookmarks",
+          message: "Blog removed from saved blogs!",
         },
         { status: 200 },
       );
@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
         {
           success: true,
           isSaved: true,
-          message: "Post saved to bookmarks",
+          message: "Blog Saved!",
         },
         { status: 201 },
       );

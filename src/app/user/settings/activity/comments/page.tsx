@@ -7,6 +7,7 @@ import { User } from "@/types/user";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   HiArrowLeft,
+  HiArrowsUpDown,
   HiChatBubbleLeftEllipsis,
   HiEllipsisVertical,
   HiTrash,
@@ -137,16 +138,23 @@ export default function CommentsActivity() {
               </div>
 
               <div className="self-end sm:self-center">
-                <select
-                  value={filter}
-                  onChange={(e) =>
-                    setFilter(e.target.value as "newest" | "oldest")
-                  }
-                  className="bg-[#1C2745] text-xs sm:text-sm text-slate-300 border border-white/10 rounded-lg px-3 py-1.5 outline-none focus:border-blue-500 transition cursor-pointer"
-                >
-                  <option value="newest">Newest First</option>
-                  <option value="oldest">Oldest First</option>
-                </select>
+                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-[#131C35] border border-white/10 rounded-xl text-xs text-slate-300 hover:border-white/20 transition">
+                  <HiArrowsUpDown className="w-3.5 h-3.5 text-blue-400" />
+                  <select
+                    value={filter}
+                    onChange={(e) =>
+                      setFilter(e.target.value as "newest" | "oldest")
+                    }
+                    className="bg-transparent outline-none cursor-pointer text-xs text-white"
+                  >
+                    <option value="newest" className="bg-[#131C35] text-white">
+                      Newest First
+                    </option>
+                    <option value="oldest" className="bg-[#131C35] text-white">
+                      Oldest First
+                    </option>
+                  </select>
+                </div>
               </div>
             </div>
 

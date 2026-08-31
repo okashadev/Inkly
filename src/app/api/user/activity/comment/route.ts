@@ -16,7 +16,7 @@ export async function GET() {
       );
     }
 
-    const userId = session.user?.id;
+    const userId = session.user.id;
 
     const userComments = await db.comment.findMany({
       where: {

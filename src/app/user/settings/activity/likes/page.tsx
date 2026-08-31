@@ -5,7 +5,7 @@ import Spinner from "@/components/home/Spinner";
 import { useSession } from "next-auth/react";
 import { User } from "@/types/user";
 import { motion } from "framer-motion";
-import { HiArrowLeft, HiHeart } from "react-icons/hi2";
+import { HiArrowLeft, HiHeart, HiArrowsUpDown } from "react-icons/hi2";
 import { useEffect, useState } from "react";
 import { LikedBlogs } from "@/types/likes";
 import { formatTimeAgo } from "@/utils/formatTime";
@@ -15,6 +15,7 @@ export default function LikesActivity() {
   const { data: session } = useSession();
   const [loading, setLoading] = useState(false);
   const [likedBlogs, setLikedBlogs] = useState<LikedBlogs[] | null>(null);
+  const [sortOrder, setSortOrder] = useState<"desc" | "asc">("desc");
   const user = session?.user as User;
 
   useEffect(() => {
@@ -40,6 +41,15 @@ export default function LikesActivity() {
     }
     getLikedBlogs();
   }, []);
+
+  // Client-side Sort Logic
+  const sortedBlogs = likedBlogs
+    ? [...likedBlogs].sort((a, b) => {
+        const dateA = new Date(a.createdAt).getTime();
+        const dateB = new Date(b.createdAt).getTime();
+        return sortOrder === "desc" ? dateB - dateA : dateA - dateB;
+      })
+    : [];
 
   if (loading) {
     return (
@@ -67,24 +77,49 @@ export default function LikesActivity() {
             className="space-y-6"
           >
             {/* Page Header */}
-            <div className="flex items-center gap-3 border-b border-white/10 pb-4">
-              <div className="p-2.5 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 shrink-0">
-                <HiHeart className="w-6 h-6" />
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 shrink-0">
+                  <HiHeart className="w-6 h-6" />
+                </div>
+                <div>
+                  <h1 className="text-2xl sm:text-3xl font-extrabold text-white">
+                    Liked Posts
+                  </h1>
+                  <p className="text-slate-400 text-xs sm:text-sm mt-0.5">
+                    Posts and articles you have appreciated.
+                  </p>
+                </div>
               </div>
-              <div>
-                <h1 className="text-2xl sm:text-3xl font-extrabold text-white">
-                  Liked Posts
-                </h1>
-                <p className="text-slate-400 text-xs sm:text-sm mt-0.5">
-                  Posts and articles you have appreciated.
-                </p>
-              </div>
+
+              {/* Sort Filter Dropdown */}
+              {likedBlogs && likedBlogs.length > 0 && (
+                <div className="flex items-center gap-2 self-start sm:self-auto">
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 bg-[#131C35] border border-white/10 rounded-xl text-xs text-slate-300 hover:border-white/20 transition">
+                    <HiArrowsUpDown className="w-3.5 h-3.5 text-red-400" />
+                    <select
+                      value={sortOrder}
+                      onChange={(e) =>
+                        setSortOrder(e.target.value as "desc" | "asc")
+                      }
+                      className="bg-transparent outline-none cursor-pointer text-xs text-white"
+                    >
+                      <option value="desc" className="bg-[#131C35] text-white">
+                        Newest First
+                      </option>
+                      <option value="asc" className="bg-[#131C35] text-white">
+                        Oldest First
+                      </option>
+                    </select>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Liked Blogs List */}
             <div className="space-y-3">
-              {likedBlogs && likedBlogs.length > 0 ? (
-                likedBlogs.map((likedBlog) => (
+              {sortedBlogs && sortedBlogs.length > 0 ? (
+                sortedBlogs.map((likedBlog) => (
                   <Link
                     key={likedBlog.id}
                     href={`/blog/${likedBlog?.postId}`}
