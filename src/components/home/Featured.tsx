@@ -7,10 +7,23 @@ import { ArrowUpRight, Heart, Eye, MessageSquare } from "lucide-react";
 import Spinner from "@/components/home/Spinner";
 import { Post } from "@/types/post";
 import { formatTimeAgo } from "@/utils/formatTime";
+import { PostMenu } from "../blog/PostMenu";
+import { useSession } from "next-auth/react";
+import { AuthActionType } from "../modals/AuthModal";
+import { toast } from "sonner";
 
 export default function Featured() {
-  const [posts, setPosts] = useState<Post[]>([]);
+  const [savedPostIds, setSavedPostIds] = useState<Set<string>>(new Set());
+  const [authAction, setAuthAction] = useState<AuthActionType>("generic");
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [posts, setPosts] = useState<Post[]>([]);
+  const { status } = useSession();
+
+  const triggerAuthRequired = (action: AuthActionType) => {
+    setAuthAction(action);
+    setIsAuthModalOpen(true);
+  };
 
   useEffect(() => {
     const fetchFeaturedPosts = async () => {
@@ -18,7 +31,13 @@ export default function Featured() {
         const res = await fetch("/api/post/featured");
         if (res.ok) {
           const data = await res.json();
-          setPosts(data.posts || []);
+          if (data.success) {
+            setPosts(data.posts || []);
+
+            if (data.savedPostIds && Array.isArray(data.savedPostIds)) {
+              setSavedPostIds(new Set(data.savedPostIds));
+            }
+          }
         }
       } catch (err) {
         console.error("Failed to fetch featured posts", err);
@@ -29,6 +48,68 @@ export default function Featured() {
 
     fetchFeaturedPosts();
   }, []);
+
+  const rollbackSave = (postId: string, wasSaved: boolean) => {
+    setSavedPostIds((prev) => {
+      const updated = new Set(prev);
+      if (wasSaved) {
+        updated.add(postId);
+      } else {
+        updated.delete(postId);
+      }
+      return updated;
+    });
+  };
+
+  const handleToggleSave = async (postId: string) => {
+    if (status === "unauthenticated") {
+      triggerAuthRequired("save");
+      return;
+    }
+
+    if (!postId) return;
+
+    const wasSaved = savedPostIds.has(postId);
+
+    setSavedPostIds((prev) => {
+      const updated = new Set(prev);
+      if (wasSaved) {
+        updated.delete(postId);
+      } else {
+        updated.add(postId);
+      }
+      return updated;
+    });
+
+    try {
+      const res = await fetch("/api/post/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ postId }),
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        setSavedPostIds((prev) => {
+          const updated = new Set(prev);
+          if (data.isSaved) {
+            updated.add(postId);
+          } else {
+            updated.delete(postId);
+          }
+          return updated;
+        });
+      }
+      if (data.message) {
+        toast.success(data.message);
+      }
+    } catch (error: any) {
+      console.error("Failed to toggle Save:", error);
+      rollbackSave(postId, wasSaved);
+      toast.error("Something went wrong!");
+    }
+  };
 
   return (
     <section className="py-20 px-4 sm:px-8 max-w-7xl mx-auto">
@@ -88,13 +169,19 @@ export default function Featured() {
                         {categoryName || "Editorial"}
                       </span>
                     </div>
+
+                    <div className="absolute top-3 right-3 z-10 bg-[#0b1326]/60 backdrop-blur-md rounded-full">
+                      <PostMenu
+                        post={post}
+                        savedPostIds={savedPostIds}
+                        onToggleSave={handleToggleSave}
+                      />
+                    </div>
                   </div>
 
                   <div className="p-6">
                     <div className="flex items-center justify-between text-xs text-slate-400 mb-3">
-                      <span>
-                        {formatTimeAgo(post.createdAt)}
-                      </span>
+                      <span>{formatTimeAgo(post.createdAt)}</span>
                       <div className="flex items-center gap-3">
                         <span className="flex items-center gap-1 text-slate-300">
                           <Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-500/20" />

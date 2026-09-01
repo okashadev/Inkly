@@ -4,21 +4,14 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { IoArrowBack } from "react-icons/io5";
+import { useRouter } from "next/navigation";
 
 const page = () => {
   const { data: session, status } = useSession();
   const router = useRouter();
-
-  useEffect(() => {
-    if (status === "authenticated") {
-      router.push("/user/dashboard");
-    }
-  }, [status, router]);
 
   if (status === "loading") {
     return (
@@ -68,9 +61,19 @@ const page = () => {
 
               <div className="text-center flex justify-center w-full items-center gap-2 text-sm">
                 <IoArrowBack />
-                <Link href="/login" className="text-[#adc6ff] cursor-pointer">
-                  Back to Login
-                </Link>
+                {status === "authenticated" ? (
+                  <button
+                    type="button"
+                    onClick={() => router.back()}
+                    className="text-[#adc6ff] cursor-pointer hover:underline bg-transparent border-none p-0 text-sm font-medium"
+                  >
+                    Back
+                  </button>
+                ) : (
+                  <Link href="/login" className="text-[#adc6ff] cursor-pointer">
+                    Back to Login
+                  </Link>
+                )}
               </div>
             </CardContent>
           </Card>

@@ -10,11 +10,80 @@ import {
   HiKey,
   HiExclamationTriangle,
   HiLockClosed,
+  HiEye,
+  HiEyeSlash,
 } from "react-icons/hi2";
+import { useState } from "react";
+import { toast } from "sonner";
 
 export default function SecuritySettings() {
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
   const { data: session, status } = useSession();
+  const [loading, setLoading] = useState(false);
   const user = session?.user as User;
+
+  const handleChangePassword = async (
+    e: React.SyntheticEvent<HTMLFormElement>,
+  ) => {
+    e.preventDefault();
+
+    if (!currentPassword) {
+      toast.error("Current password is required.");
+      return;
+    }
+    if (!newPassword) {
+      toast.error("New password is required.");
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      toast.error("New password must be at least 6 characters long.");
+      return;
+    }
+
+    if (currentPassword === newPassword) {
+      toast.error("New password cannot be the same as current password.");
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      toast.error("New password and confirm password do not match.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const res = await fetch("/api/auth/change-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ currentPassword, newPassword }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        toast.success(data.message || "Password updated successfully!");
+        setCurrentPassword("");
+        setNewPassword("");
+        setConfirmPassword("");
+      } else {
+        toast.error(data.message || "Failed to update password.");
+      }
+    } catch (error: any) {
+      console.error("Change Password Error:", error);
+      toast.error("Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   if (status === "loading") {
     return (
@@ -58,18 +127,42 @@ export default function SecuritySettings() {
                 <h3>Change Password</h3>
               </div>
 
-              <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
+              <form onSubmit={handleChangePassword} className="space-y-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs text-slate-300 font-medium">
-                    Current Password
-                  </label>
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs text-slate-300 font-medium">
+                      Current Password
+                    </label>
+                    <Link
+                      href="/forget_password"
+                      className="text-xs text-blue-400 hover:text-blue-300 hover:underline transition font-medium"
+                    >
+                      Forgot your password?
+                    </Link>
+                  </div>
                   <div className="relative">
                     <input
-                      type="password"
-                      placeholder="Enter current password"
+                      type={showCurrentPassword ? "text" : "password"}
+                      value={currentPassword}
+                      onChange={(e) => setCurrentPassword(e.target.value)}
+                      placeholder="••••••••"
+                      disabled={loading}
                       className="w-full bg-[#1C2745] border border-white/10 rounded-xl p-3 pl-10 text-sm text-white focus:outline-none focus:border-blue-500 transition placeholder:text-slate-500"
                     />
                     <HiLockClosed className="w-4 h-4 text-slate-500 absolute left-3.5 top-3.5" />
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setShowCurrentPassword(!showCurrentPassword)
+                      }
+                      className="absolute right-3.5 top-3.5 text-slate-400 hover:text-white transition"
+                    >
+                      {showCurrentPassword ? (
+                        <HiEyeSlash className="w-4 h-4" />
+                      ) : (
+                        <HiEye className="w-4 h-4" />
+                      )}
+                    </button>
                   </div>
                 </div>
 
@@ -78,37 +171,73 @@ export default function SecuritySettings() {
                     <label className="text-xs text-slate-300 font-medium">
                       New Password
                     </label>
-                    <input
-                      type="password"
-                      placeholder="New password"
-                      className="w-full bg-[#1C2745] border border-white/10 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-blue-500 transition placeholder:text-slate-500"
-                    />
+                    <div className="relative">
+                      <input
+                        type={showNewPassword ? "text" : "password"}
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        placeholder="••••••••"
+                        disabled={loading}
+                        className="w-full bg-[#1C2745] border border-white/10 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-blue-500 transition placeholder:text-slate-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowNewPassword(!showNewPassword)}
+                        className="absolute right-3.5 top-3.5 text-slate-400 hover:text-white transition"
+                      >
+                        {showNewPassword ? (
+                          <HiEyeSlash className="w-4 h-4" />
+                        ) : (
+                          <HiEye className="w-4 h-4" />
+                        )}
+                      </button>
+                    </div>
                   </div>
+
                   <div className="space-y-1.5">
                     <label className="text-xs text-slate-300 font-medium">
                       Confirm New Password
                     </label>
-                    <input
-                      type="password"
-                      placeholder="Confirm new password"
-                      className="w-full bg-[#1C2745] border border-white/10 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-blue-500 transition placeholder:text-slate-500"
-                    />
+                    <div className="relative">
+                      <input
+                        type={showConfirmPassword ? "text" : "password"}
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        placeholder="••••••••"
+                        disabled={loading}
+                        className="w-full bg-[#1C2745] border border-white/10 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-blue-500 transition placeholder:text-slate-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setShowConfirmPassword(!showConfirmPassword)
+                        }
+                        className="absolute right-3.5 top-3.5 text-slate-400 hover:text-white transition"
+                      >
+                        {showConfirmPassword ? (
+                          <HiEyeSlash className="w-4 h-4" />
+                        ) : (
+                          <HiEye className="w-4 h-4" />
+                        )}
+                      </button>
+                    </div>
                   </div>
                 </div>
 
                 <div className="flex justify-end pt-2">
                   <button
                     type="submit"
-                    className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-semibold uppercase tracking-wider transition active:scale-95 shadow-md shadow-blue-600/20"
+                    disabled={loading}
+                    className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-semibold uppercase tracking-wider transition disabled:opacity-50 active:scale-95 shadow-md shadow-blue-600/20"
                   >
-                    Update Password
+                    {loading ? "Updating..." : "Update Password"}
                   </button>
                 </div>
               </form>
             </div>
 
             {/* Danger Zone Card */}
-            <div className="bg-red-500/10 border border-red-500/20 p-6 sm:p-8 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+            {/* <div className="bg-red-500/10 border border-red-500/20 p-6 sm:p-8 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
               <div className="space-y-1">
                 <div className="flex items-center gap-2 text-red-400 font-bold text-base">
                   <HiExclamationTriangle className="w-5 h-5 shrink-0" />
@@ -126,7 +255,7 @@ export default function SecuritySettings() {
               >
                 Delete Account
               </button>
-            </div>
+            </div> */}
           </motion.div>
         </div>
       </main>
