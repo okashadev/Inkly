@@ -9,7 +9,7 @@ import { Post } from "@/types/post";
 import { formatTimeAgo } from "@/utils/formatTime";
 import { PostMenu } from "../blog/PostMenu";
 import { useSession } from "next-auth/react";
-import { AuthActionType } from "../modals/AuthModal";
+import AuthModal, { AuthActionType } from "../modals/AuthModal";
 import { toast } from "sonner";
 
 export default function Featured() {
@@ -217,6 +217,12 @@ export default function Featured() {
           })}
         </div>
       )}
+
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        actionType={authAction}
+      />
     </section>
   );
 }

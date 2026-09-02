@@ -7,19 +7,21 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  name      String?
-  username  String   @unique
-  email     String   @unique
-  password  String?
-  image     String?
-  bio       String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id               String    @id @default(cuid())
+  name             String?
+  username         String    @unique
+  email            String    @unique
+  password         String?
+  image            String?
+  bio              String?
+  resetToken       String?   @unique
+  resetTokenExpiry DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
-  posts    Post[]
-  comments Comment[]
-  likes    Like[]
+  posts      Post[]
+  comments   Comment[]
+  likes      Like[]
   savedPosts SavedPost[]
 
   followers Follow[] @relation("FollowingRelation")
@@ -40,7 +42,7 @@ model Follow {
 
 model Category {
   id        String   @id @default(cuid())
-  name      String   @unique 
+  name      String   @unique
   slug      String   @unique
   createdAt DateTime @default(now())
 
@@ -50,7 +52,7 @@ model Category {
 model Post {
   id          String  @id @default(cuid())
   title       String
-  slug        String  @unique 
+  slug        String  @unique
   content     String  @db.Text
   description String? @db.VarChar(255)
 
@@ -68,8 +70,8 @@ model Post {
   categoryId String?
   category   Category? @relation(fields: [categoryId], references: [id], onDelete: Restrict)
 
-  comments Comment[]
-  likes    Like[]
+  comments   Comment[]
+  likes      Like[]
   savedPosts SavedPost[]
 }
 
@@ -98,7 +100,6 @@ model Like {
 
   @@unique([userId, postId])
 }
-
 
 model SavedPost {
   id        String   @id @default(cuid())

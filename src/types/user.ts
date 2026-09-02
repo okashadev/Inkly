@@ -5,6 +5,8 @@ export interface User {
   email: string;
   image?: string | null;
   bio?: string | null;
+  resetToken?: string | null;
+  resetTokenExpiry?: Date | string | null;
   createdAt: string | Date;
   updatedAt: string | Date;
   _count?: {
