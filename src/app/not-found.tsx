@@ -34,7 +34,7 @@ export default function NotFound() {
             Page Not Found
           </h2>
           <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
-            Oops! Aap jis page ko dhoond rahe hain wo move ho chuka hai ya wajood mein hi nahi hai.
+            Oops! The page you're looking for doesn't exist or has been moved.
           </p>
         </div>
 
