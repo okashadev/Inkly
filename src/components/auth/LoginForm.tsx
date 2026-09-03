@@ -43,7 +43,15 @@ const LoginForm = () => {
         redirect: false,
       });
 
+      console.log(result);
+
       if (result?.error) {
+        if (result.code === "EMAIL_NOT_VERIFIED") {
+          toast.error("Please verify your email address before logging in.");
+          router.push(`/verify-email?email=${encodeURIComponent(email)}`);
+          return;
+        }
+
         toast.error("Invalid email or password");
         setErrors({ form: "Invalid email or password. Please try again." });
         return;

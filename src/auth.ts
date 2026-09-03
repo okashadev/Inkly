@@ -1,9 +1,13 @@
 // auth.ts
-import NextAuth from "next-auth";
+import NextAuth, { CredentialsSignin } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcrypt";
 import { authConfig } from "./auth.config";
 import { db } from "./lib/db";
+
+class EmailNotVerifiedError extends CredentialsSignin {
+  code = "EMAIL_NOT_VERIFIED";
+}
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   ...authConfig,
@@ -29,6 +33,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
         if (!isPasswordValid) return null;
 
+        if (!user.emailVerified) {
+          throw new EmailNotVerifiedError();
+        }
+
         return {
           id: user.id,
           name: user.name,
@@ -36,6 +44,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           email: user.email,
           image: user.image,
           bio: user.bio,
+          emailVerified: user.emailVerified,
         };
       },
     }),
@@ -48,6 +57,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.username = user.username;
         token.image = user.image;
         token.bio = user.bio;
+        token.emailVerified = user.emailVerified
+          ? new Date(user.emailVerified)
+          : null;
       }
 
       if (trigger === "update" && session) {
@@ -61,8 +73,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         session.user.username = token.username as string;
         session.user.image = token.image as string;
         session.user.bio = token.bio as string;
+        (session.user as any).emailVerified = token.emailVerified;
       }
-      
+
       return session;
     },
   },

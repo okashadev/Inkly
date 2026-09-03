@@ -5,10 +5,17 @@ export interface User {
   email: string;
   image?: string | null;
   bio?: string | null;
+
+  emailVerified?: Date | null;
+  otpCode?: string | null;
+  otpExpiry?: Date | string | null;
+
   resetToken?: string | null;
   resetTokenExpiry?: Date | string | null;
+
   createdAt: string | Date;
   updatedAt: string | Date;
+
   _count?: {
     posts: number;
     followers: number;

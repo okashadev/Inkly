@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { signIn } from "next-auth/react";
 import { toast } from "sonner";
 
 const RegisterForm = () => {
@@ -26,19 +25,19 @@ const RegisterForm = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-
   const validateUsername = (username: string) => {
     if (!username) return "Username is required";
     if (username.length < 3) return "Username must be at least 3 characters";
     if (username.length > 30) return "Username cannot exceed 30 characters";
     if (/\s/.test(username)) return "Spaces are not allowed in username";
-    if (/-/.test(username)) return "Hyphens (-) are not allowed, use underscores (_)";
-    
+    if (/-/.test(username))
+      return "Hyphens (-) are not allowed, use underscores (_)";
+
     const regex = /^[a-z0-9_]+(?:\.[a-z0-9_]+)*$/;
     if (!regex.test(username)) {
       return "Only lowercase letters, numbers, underscores, and single dots are allowed";
     }
-    
+
     return "";
   };
 
@@ -121,23 +120,21 @@ const RegisterForm = () => {
         return;
       }
 
-      toast.success("Account created successfully! Logging you in...");
+      toast.success(
+        "Account created! Please check your email for verification code.",
+      );
 
-      const result = await signIn("credentials", {
-        email: formData.email,
-        password: formData.password,
-        redirect: false,
+      setFormData({
+        name: "",
+        username: "",
+        email: "",
+        password: "",
+        confirmPassword: "",
       });
 
-      if (result?.error) {
-        toast.warning(
-          "Account created but automatic login failed. Please sign in manually."
-        );
-        router.push("/login");
-        return;
-      }
+      const targetEmail = formData.email.trim();
 
-      router.push("/user/dashboard");
+      router.push(`/verify-email?email=${encodeURIComponent(targetEmail)}&from=register`);
       router.refresh();
     } catch (error) {
       console.error(error);
@@ -159,7 +156,10 @@ const RegisterForm = () => {
         href="/"
         className="inline-flex items-center gap-2 text-sm text-[#c2c6d6] hover:text-white transition-colors group"
       >
-        <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
+        <ArrowLeft
+          size={16}
+          className="group-hover:-translate-x-1 transition-transform"
+        />
         Back to Home
       </Link>
 
@@ -179,7 +179,9 @@ const RegisterForm = () => {
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label className="text-xs font-medium text-[#c2c6d6]">Full Name</Label>
+                <Label className="text-xs font-medium text-[#c2c6d6]">
+                  Full Name
+                </Label>
                 <Input
                   name="name"
                   type="text"
@@ -192,12 +194,16 @@ const RegisterForm = () => {
                   }`}
                 />
                 {errors.name && (
-                  <p className="text-xs text-red-400 mt-1 font-medium">{errors.name}</p>
+                  <p className="text-xs text-red-400 mt-1 font-medium">
+                    {errors.name}
+                  </p>
                 )}
               </div>
 
               <div>
-                <Label className="text-xs font-medium text-[#c2c6d6]">Username</Label>
+                <Label className="text-xs font-medium text-[#c2c6d6]">
+                  Username
+                </Label>
                 <Input
                   name="username"
                   type="text"
@@ -206,18 +212,24 @@ const RegisterForm = () => {
                   onChange={handleChange}
                   placeholder="johndoe_123"
                   className={`bg-[#131b2e] border-white/10 text-white placeholder:text-gray-500 mt-1 focus:ring-2 focus:ring-[#adc6ff] transition-all ${
-                    errors.username ? "ring-2 ring-red-500 border-transparent" : ""
+                    errors.username
+                      ? "ring-2 ring-red-500 border-transparent"
+                      : ""
                   }`}
                 />
                 {errors.username && (
-                  <p className="text-xs text-red-400 mt-1 font-medium">{errors.username}</p>
+                  <p className="text-xs text-red-400 mt-1 font-medium">
+                    {errors.username}
+                  </p>
                 )}
               </div>
             </div>
 
             {/* Email */}
             <div>
-              <Label className="text-xs font-medium text-[#c2c6d6]">Email Address</Label>
+              <Label className="text-xs font-medium text-[#c2c6d6]">
+                Email Address
+              </Label>
               <Input
                 type="email"
                 name="email"
@@ -230,14 +242,18 @@ const RegisterForm = () => {
                 }`}
               />
               {errors.email && (
-                <p className="text-xs text-red-400 mt-1 font-medium">{errors.email}</p>
+                <p className="text-xs text-red-400 mt-1 font-medium">
+                  {errors.email}
+                </p>
               )}
             </div>
 
             {/* Passwords */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label className="text-xs font-medium text-[#c2c6d6]">Password</Label>
+                <Label className="text-xs font-medium text-[#c2c6d6]">
+                  Password
+                </Label>
                 <div className="relative mt-1">
                   <Input
                     name="password"
@@ -247,7 +263,9 @@ const RegisterForm = () => {
                     type={showPassword ? "text" : "password"}
                     placeholder="••••••••"
                     className={`bg-[#131b2e] border-white/10 text-white placeholder:text-gray-500 focus:ring-2 focus:ring-[#adc6ff] transition-all pr-10 ${
-                      errors.password ? "ring-2 ring-red-500 border-transparent" : ""
+                      errors.password
+                        ? "ring-2 ring-red-500 border-transparent"
+                        : ""
                     }`}
                   />
                   <button
@@ -259,12 +277,16 @@ const RegisterForm = () => {
                   </button>
                 </div>
                 {errors.password && (
-                  <p className="text-xs text-red-400 mt-1 font-medium">{errors.password}</p>
+                  <p className="text-xs text-red-400 mt-1 font-medium">
+                    {errors.password}
+                  </p>
                 )}
               </div>
 
               <div>
-                <Label className="text-xs font-medium text-[#c2c6d6]">Confirm</Label>
+                <Label className="text-xs font-medium text-[#c2c6d6]">
+                  Confirm
+                </Label>
                 <div className="relative mt-1">
                   <Input
                     name="confirmPassword"
@@ -274,7 +296,9 @@ const RegisterForm = () => {
                     onChange={handleChange}
                     placeholder="••••••••"
                     className={`bg-[#131b2e] border-white/10 text-white placeholder:text-gray-500 focus:ring-2 focus:ring-[#adc6ff] transition-all pr-10 ${
-                      errors.confirmPassword ? "ring-2 ring-red-500 border-transparent" : ""
+                      errors.confirmPassword
+                        ? "ring-2 ring-red-500 border-transparent"
+                        : ""
                     }`}
                   />
                   <button
