@@ -1,13 +1,15 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { motion, AnimatePresence } from "framer-motion";
+import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { FaSearch, FaBars, FaTimes } from "react-icons/fa";
+import { motion, AnimatePresence } from "framer-motion";
 import { useSession, signOut } from "next-auth/react";
-import Image from "next/image";
+import { useEffect, useRef, useState } from "react";
 import Spinner from "@/components/home/Spinner";
+import { useRouter } from "next/navigation";
+import Image from "next/image";
+import Link from "next/link";
+import { User } from "@/types/user";
 
 interface Category {
   id: string;
@@ -18,13 +20,15 @@ interface Category {
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-  const [openDropdown, setOpenDropdown] = useState(false);
-  const { data: session, status } = useSession();
   const [categories, setCategories] = useState<Category[]>([]);
+  const [openDropdown, setOpenDropdown] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [scrolled, setScrolled] = useState(false);
+  const { data: session, status } = useSession();
   const router = useRouter();
+
+  const user = session?.user as User;
 
   useEffect(() => {
     const handleScroll = () => {
@@ -46,7 +50,7 @@ export default function Navbar() {
       .catch((err) => console.error("Error loading categories:", err));
   }, []);
 
-  const handleSearchSubmit = (e: React.FormEvent) => {
+  const handleSearchSubmit = (e: React.SyntheticEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
       router.push(`/blog/search?q=${encodeURIComponent(searchQuery.trim())}`);
@@ -186,6 +190,10 @@ export default function Navbar() {
             />
           </form>
 
+          {user?.id && (
+            <NotificationBell userId={user.id} initialUnreadCount={0} />
+          )}
+
           {/* Auth Button / Profile Dropdown */}
           {session ? (
             <div className="relative" ref={dropdownRef}>
@@ -282,6 +290,12 @@ export default function Navbar() {
 
         {/* Mobile Hamburger Button */}
         <div className="flex md:hidden items-center gap-3">
+          {user?.id && (
+            <NotificationBell
+              userId={user.id}
+              initialUnreadCount={0}
+            />
+          )}
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             className="text-white text-xl p-2 rounded-xl bg-white/10 focus:outline-none"

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { auth } from "@/auth";
+import { CreateNotification } from "@/lib/notifications";
 
 export async function POST(req: Request) {
   try {
@@ -49,6 +50,16 @@ export async function POST(req: Request) {
           id: existingLike.id,
         },
       });
+
+      await db.notification.deleteMany({
+        where: {
+          type: "LIKE",
+          senderId: userId,
+          receiverId: post.authorId,
+          postId: postId,
+        },
+      });
+
       isLiked = false;
     } else {
       await db.like.create({
@@ -56,6 +67,13 @@ export async function POST(req: Request) {
           postId: postId,
           userId: userId,
         },
+      });
+
+      await CreateNotification({
+        type: "LIKE",
+        senderId: userId,
+        receiverId: post.authorId,
+        postId: postId,
       });
       isLiked = true;
     }

@@ -66,6 +66,7 @@ export async function GET(
     }
 
     let isFollowing = false;
+    let isFollower = false;
 
     if (currentUserId && author?.id) {
       const followRecord = await db.follow.findFirst({
@@ -75,14 +76,23 @@ export async function GET(
         },
       });
 
+      const followerRecord = await db.follow.findFirst({
+        where: {
+          followerId: author?.id,
+          followingId: currentUserId,
+        },
+      });
+
       isFollowing = !!followRecord;
+      isFollower = !!followerRecord;
     }
 
     return NextResponse.json(
       {
         success: true,
         author: author,
-        isFollowing
+        isFollowing,
+        isFollower,
       },
       { status: 200 },
     );

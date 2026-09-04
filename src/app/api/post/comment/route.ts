@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { auth } from "@/auth";
+import { CreateNotification } from "@/lib/notifications";
 
 export async function GET(req: Request) {
   try {
@@ -62,6 +63,7 @@ export async function POST(req: Request) {
 
     const postExists = await db.post.findUnique({
       where: { id: postId },
+      select: { id: true, authorId: true },
     });
 
     if (!postExists) {
@@ -87,6 +89,14 @@ export async function POST(req: Request) {
           },
         },
       },
+    });
+
+    await CreateNotification({
+      type: "COMMENT",
+      senderId: session.user.id,
+      receiverId: postExists.authorId,
+      postId: postId,
+      commentId: newComment.id,
     });
 
     const totalComments = await db.comment.count({

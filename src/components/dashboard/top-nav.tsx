@@ -16,13 +16,19 @@ import { motion, AnimatePresence } from "framer-motion";
 import { signOut } from "next-auth/react";
 import { User } from "@/types/user";
 import { usePathname } from "next/navigation";
+import { NotificationBell } from "@/components/notifications/NotificationBell";
 
 interface TopNavProps {
   user: User | null;
   onMenuClick?: () => void;
+  initialUnreadCount?: number;
 }
 
-export function TopNav({ user, onMenuClick }: TopNavProps) {
+export function TopNav({
+  user,
+  onMenuClick,
+  initialUnreadCount = 0,
+}: TopNavProps) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
@@ -32,6 +38,7 @@ export function TopNav({ user, onMenuClick }: TopNavProps) {
     "/user/my_blogs": "My Blogs",
     "/user/profile": "Profile Edit",
     "/user/settings": "Settings",
+    "/user/notification": "Notifications",
   };
 
   useEffect(() => {
@@ -78,17 +85,12 @@ export function TopNav({ user, onMenuClick }: TopNavProps) {
       </div>
 
       <div className="flex items-center gap-5">
-        <button
-          type="button"
-          className="relative rounded-full p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-          aria-label="Notifications"
-        >
-          <Bell className="h-5 w-5" />
-          <span
-            className="absolute right-2 top-2 h-2 w-2 rounded-full bg-primary ring-2 ring-background"
-            aria-hidden="true"
+        {user?.id && (
+          <NotificationBell
+            userId={user.id}
+            initialUnreadCount={initialUnreadCount}
           />
-        </button>
+        )}
 
         {/* User Profile Avatar & Dropdown */}
         <div className="relative" ref={dropdownRef}>

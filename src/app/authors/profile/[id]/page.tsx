@@ -21,7 +21,6 @@ import { useSession } from "next-auth/react";
 import { formatTimeAgo } from "@/utils/formatTime";
 import { Post } from "@/types/post";
 
-
 interface AuthorProfile {
   id: string;
   name: string;
@@ -56,6 +55,7 @@ export default function AuthorProfilePage({
   const [author, setAuthor] = useState<AuthorProfile | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isFollowing, setIsFollowing] = useState(false);
+  const [isFollower, setIsFollower] = useState(false);
   const [activeFilter, setActiveFilter] = useState("ALL");
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
@@ -71,6 +71,7 @@ export default function AuthorProfilePage({
           const data = await res.json();
           setAuthor(data.author);
           setIsFollowing(data.isFollowing);
+          setIsFollower(data.isFollower);
           console.log(data);
         }
       } catch (error: any) {
@@ -245,13 +246,18 @@ export default function AuthorProfilePage({
                   >
                     {isFollowing ? (
                       <>
-                        <UserCheck className="w-4 h-4" />
-                        Following
+                        <UserCheck className="w-4 h-4 text-emerald-400" />
+                        <span>Following</span>
+                      </>
+                    ) : isFollower ? (
+                      <>
+                        <UserPlus className="w-4 h-4" />
+                        <span>Follow Back</span>
                       </>
                     ) : (
                       <>
                         <UserPlus className="w-4 h-4" />
-                        Follow
+                        <span>Follow</span>
                       </>
                     )}
                   </motion.button>

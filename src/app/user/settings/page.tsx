@@ -63,10 +63,12 @@ export default function SettingsHub() {
                 {user?.email || "user@example.com"}
               </p>
             </div>
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-medium rounded-full">
-              <HiCheckBadge className="w-4 h-4" />
-              Verified
-            </span>
+            {user?.emailVerified && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-medium rounded-full">
+                <HiCheckBadge className="w-4 h-4" />
+                Verified
+              </span>
+            )}
           </div>
 
           <motion.section

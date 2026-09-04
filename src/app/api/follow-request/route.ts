@@ -1,5 +1,6 @@
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
+import { CreateNotification } from "@/lib/notifications";
 import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
@@ -49,6 +50,14 @@ export async function POST(req: Request) {
         },
       });
 
+      await db.notification.deleteMany({
+        where: {
+          type: "FOLLOW",
+          senderId: followerId,
+          receiverId: authorId,
+        },
+      });
+
       return NextResponse.json(
         {
           success: true,
@@ -63,6 +72,12 @@ export async function POST(req: Request) {
           followerId: followerId,
           followingId: authorId,
         },
+      });
+
+      await CreateNotification({
+        type: "FOLLOW",
+        senderId: followerId,
+        receiverId: authorId,
       });
 
       return NextResponse.json(

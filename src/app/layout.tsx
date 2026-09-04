@@ -4,6 +4,8 @@ import "./globals.css";
 import { cn } from "@/lib/utils";
 import NextAuthProvider from "@/components/providers/NextAuthProvider";
 import { Toaster } from "@/components/ui/sonner";
+import { auth } from "@/auth";
+import NotificationListener from "@/components/notifications/NotificationListener";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
@@ -59,11 +61,13 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const session = await auth();
+  const userId = session?.user?.id;
   return (
     <html
       lang="en"
@@ -77,8 +81,11 @@ export default function RootLayout({
       )}
     >
       <body className="min-h-full flex flex-col">
-        <NextAuthProvider>{children}</NextAuthProvider>
-        <Toaster />
+        <NextAuthProvider>
+          {userId && <NotificationListener userId={userId} />}
+          {children}
+        </NextAuthProvider>
+        <Toaster position="top-right" richColors closeButton />
       </body>
     </html>
   );
