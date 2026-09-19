@@ -338,18 +338,14 @@ export default function BlogsPage() {
 
         {/* Standard Feed Grid */}
         {posts.length > 0 ? (
-          <motion.section
-            variants={containerVariants}
-            initial="hidden"
-            whileInView="show"
-            viewport={{ once: true, margin: "-100px" }}
-            className="space-y-12"
-          >
+          <section className="space-y-12">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {posts.map((post) => (
                 <motion.article
                   key={post.id}
-                  variants={fadeUpVariants}
+                  initial={{ opacity: 0, y: 25 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, ease: [0.25, 0.1, 0.25, 1.0] }}
                   className="bg-[#131b2e]/60 border border-white/10 rounded-2xl overflow-hidden flex flex-col hover:border-blue-500/30 hover:bg-[#131b2e] transition duration-300 shadow-xl group relative"
                 >
                   <div className="relative aspect-video w-full overflow-hidden bg-slate-900 flex items-center justify-center">
@@ -441,10 +437,7 @@ export default function BlogsPage() {
             </div>
 
             {hasMore && (
-              <motion.div
-                variants={fadeUpVariants}
-                className="flex justify-center pt-8"
-              >
+              <div className="flex justify-center pt-8">
                 <button
                   type="button"
                   onClick={handleLoadMore}
@@ -460,9 +453,9 @@ export default function BlogsPage() {
                     "Load More Articles"
                   )}
                 </button>
-              </motion.div>
+              </div>
             )}
-          </motion.section>
+          </section>
         ) : (
           <div className="text-center py-20 text-slate-400">
             No posts found in the feed.
