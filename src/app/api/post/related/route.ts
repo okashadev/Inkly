@@ -21,6 +21,7 @@ export async function GET(request: Request) {
       where: {
         categoryId: categoryId,
         id: { not: currentPostId },
+        published: true,
       },
       take: 3,
       orderBy: { createdAt: "desc" },
@@ -40,6 +41,7 @@ export async function GET(request: Request) {
       const fallbackPosts = await db.post.findMany({
         where: {
           id: { notIn: existingIds },
+          published: true,
         },
         take: needed,
         orderBy: { createdAt: "desc" },

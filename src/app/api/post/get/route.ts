@@ -5,9 +5,9 @@ import { auth } from "@/auth";
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const id = searchParams.get("id");
+    const postId = searchParams.get("id");
 
-    if (!id) {
+    if (!postId) {
       return NextResponse.json(
         { success: false, error: "Post ID is required." },
         { status: 400 },
@@ -18,7 +18,7 @@ export async function GET(request: Request) {
     const currentUserId = session?.user?.id;
 
     const post = await db.post.findUnique({
-      where: { id },
+      where: { id: postId, published: true },
       include: {
         author: {
           include: {

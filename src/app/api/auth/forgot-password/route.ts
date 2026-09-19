@@ -1,53 +1,68 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
+import { z } from "zod";
 import { transporter } from "@/lib/nodemailer";
 import { db } from "@/lib/db";
 
+const forgotPasswordSchema = z.object({
+  email: z.string().trim().email("Invalid email address").toLowerCase(),
+});
+
 export async function POST(req: Request) {
   try {
-    const { email } = await req.json();
+    const body = await req.json();
 
-    if (!email || typeof email !== "string") {
+    const validation = forgotPasswordSchema.safeParse(body);
+    if (!validation.success) {
       return NextResponse.json(
         { error: "Valid email address is required." },
         { status: 400 },
       );
     }
 
-    const normalizedEmail = email.toLowerCase().trim();
+    const { email } = validation.data;
+
+    const successResponse = NextResponse.json(
+      {
+        message:
+          "If an account is associated with this email, we've sent a reset link. Please check your inbox and spam folder.",
+      },
+      { status: 200 },
+    );
 
     const user = await db.user.findUnique({
-      where: { email: normalizedEmail },
+      where: { email },
+      select: { id: true },
     });
 
     if (!user) {
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            "If an account is associated with this email, we've sent a reset link. Please double-check your email spelling if you don't receive it.",
-        },
-        { status: 200 },
-      );
+      return successResponse;
     }
 
-    const resetToken = crypto.randomBytes(32).toString("hex");
-    const resetTokenExpiry = new Date(Date.now() + 3600000);
+    const rawResetToken = crypto.randomBytes(32).toString("hex");
+    const hashedResetToken = crypto
+      .createHash("sha256")
+      .update(rawResetToken)
+      .digest("hex");
+
+    const resetTokenExpiry = new Date(Date.now() + 60 * 60 * 1000);
 
     await db.user.update({
       where: { id: user.id },
       data: {
-        resetToken,
+        resetToken: hashedResetToken,
         resetTokenExpiry,
       },
     });
 
-    const appUrl = process.env.AUTH_URL || "http://localhost:3000";
-    const resetUrl = `${appUrl}/reset-password?token=${resetToken}&email=${encodeURIComponent(normalizedEmail)}`;
+    const appUrl = process.env.AUTH_URL || "https://inkly-ecru.vercel.app";
+    const resetUrl = `${appUrl}/reset-password?token=${rawResetToken}&email=${encodeURIComponent(
+      email,
+    )}`;
 
-    await transporter.sendMail({
+    const mailOptions = {
       from: `"Inkly Support" <${process.env.SENDER_EMAIL}>`,
-      to: normalizedEmail,
+      to: email,
       subject: "Reset your Inkly password",
       html: `
         <!DOCTYPE html>
@@ -70,7 +85,6 @@ export async function POST(req: Request) {
                   <tr>
                     <td style="border-bottom: 1px solid #f4f4f5; padding-bottom: 20px;"></td>
                   </tr>
-
                   <tr>
                     <td style="padding-top: 24px;">
                       <h2 style="margin: 0 0 12px 0; font-size: 18px; font-weight: 600; color: #18181b;">Reset your password</h2>
@@ -79,7 +93,6 @@ export async function POST(req: Request) {
                       </p>
                     </td>
                   </tr>
-
                   <tr>
                     <td align="center" style="padding: 12px 0 28px 0;">
                       <a href="${resetUrl}" target="_blank" style="display: inline-block; background-color: #09090b; color: #ffffff; font-size: 14px; font-weight: 600; text-decoration: none; padding: 12px 28px; border-radius: 8px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);">
@@ -87,7 +100,6 @@ export async function POST(req: Request) {
                       </a>
                     </td>
                   </tr>
-
                   <tr>
                     <td>
                       <p style="margin: 0 0 12px 0; font-size: 13px; line-height: 20px; color: #71717a;">
@@ -98,7 +110,6 @@ export async function POST(req: Request) {
                       </p>
                     </td>
                   </tr>
-
                   <tr>
                     <td style="padding-top: 28px; border-top: 1px solid #f4f4f5; margin-top: 28px;">
                       <p style="margin: 0; font-size: 12px; line-height: 18px; color: #a1a1aa; word-break: break-all;">
@@ -114,17 +125,15 @@ export async function POST(req: Request) {
         </body>
         </html>
       `,
+    };
+
+    transporter.sendMail(mailOptions).catch((err) => {
+      console.error("[FORGOT_PASSWORD_MAIL_ERROR]:", err);
     });
 
-    return NextResponse.json(
-      {
-        message:
-          "Password reset link has been sent. Please check your inbox and spam folder.",
-      },
-      { status: 200 },
-    );
+    return successResponse;
   } catch (error) {
-    console.error("Forgot Password Error:", error);
+    console.error("[FORGOT_PASSWORD_ERROR]:", error);
     return NextResponse.json(
       {
         error:

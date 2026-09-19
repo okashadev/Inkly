@@ -3,8 +3,16 @@
 import { pusherClient } from "@/lib/pusher";
 import { Bell, Heart, MessageSquare, UserPlus } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { toast } from "sonner";
+
+interface NotificationData {
+  id: string;
+  type: "LIKE" | "COMMENT" | "FOLLOW" | string;
+  senderName: string;
+  senderImage?: string;
+  postId?: string;
+}
 
 interface NotificationListenerProps {
   userId: string;
@@ -15,15 +23,18 @@ export default function NotificationListener({
 }: NotificationListenerProps) {
   const router = useRouter();
 
+  const routerRef = useRef(router);
   useEffect(() => {
-    if (!userId) {
-      return;
-    }
+    routerRef.current = router;
+  }, [router]);
+
+  useEffect(() => {
+    if (!userId) return;
 
     const channelName = `user-${userId}`;
     const channel = pusherClient.subscribe(channelName);
 
-    channel.bind("new-notification", (data: any) => {
+    const handleNewNotification = (data: NotificationData) => {
       let title = "New Notification";
       let description = "";
       let icon = <Bell className="w-5 h-5 text-emerald-500" />;
@@ -43,23 +54,26 @@ export default function NotificationListener({
       }
 
       toast(title, {
-        description: description,
-        icon: icon,
+        description,
+        icon,
         action: data.postId
           ? {
               label: "View",
-              onClick: () => router.push(`/user/notification`),
+              onClick: () => routerRef.current.push("/user/notification"),
             }
           : undefined,
       });
 
-      router.refresh();
-    });
+      routerRef.current.refresh();
+    };
+
+    channel.bind("new-notification", handleNewNotification);
 
     return () => {
+      channel.unbind("new-notification", handleNewNotification);
       pusherClient.unsubscribe(channelName);
     };
-  }, [userId, router]);
+  }, [userId]);
 
   return null;
 }

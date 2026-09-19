@@ -4,10 +4,19 @@ import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcrypt";
 import { authConfig } from "./auth.config";
 import { db } from "./lib/db";
+import z from "zod";
 
 class EmailNotVerifiedError extends CredentialsSignin {
   code = "EMAIL_NOT_VERIFIED";
 }
+
+const DUMMY_HASH =
+  "$2b$10$e8T.s1W7Sg.s4N0w4z.G8eM6T9iS8A1oW7G0s1N0w4z.G8eM6T9iS";
+
+const credentialsSchema = z.object({
+  email: z.string().trim().email().toLowerCase(),
+  password: z.string().min(1),
+});
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   ...authConfig,
@@ -18,20 +27,32 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         password: {},
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) return null;
+        const parsedCredentials = credentialsSchema.safeParse(credentials);
+        if (!parsedCredentials.success) return null;
+
+        const { email, password } = parsedCredentials.data;
 
         const user = await db.user.findUnique({
-          where: { email: credentials.email as string },
+          where: { email },
+          select: {
+            id: true,
+            name: true,
+            username: true,
+            email: true,
+            password: true,
+            image: true,
+            bio: true,
+            emailVerified: true,
+          },
         });
 
-        if (!user || !user.password) return null;
+        const hashToCompare = user?.password || DUMMY_HASH;
 
-        const isPasswordValid = await bcrypt.compare(
-          credentials.password as string,
-          user.password,
-        );
+        const isPasswordValid = await bcrypt.compare(password, hashToCompare);
 
-        if (!isPasswordValid) return null;
+        if (!user || !user.password || !isPasswordValid) {
+          return null;
+        }
 
         if (!user.emailVerified) {
           throw new EmailNotVerifiedError();
@@ -62,14 +83,25 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           : null;
       }
 
-      if (trigger === "update" && session) {
-        return { ...token, ...session.user };
+      if (trigger === "update" && session?.user) {
+        if (typeof session.user.name === "string")
+          token.name = session.user.name;
+        if (typeof session.user.username === "string")
+          token.username = session.user.username;
+        if (typeof session.user.image === "string")
+          token.image = session.user.image;
+        if (typeof session.user.bio === "string") token.bio = session.user.bio;
+        if (session.user.emailVerified) {
+          token.emailVerified = new Date(session.user.emailVerified);
+        }
       }
+
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string;
+        session.user.name = token.name as string;
         session.user.username = token.username as string;
         session.user.image = token.image as string;
         session.user.bio = token.bio as string;

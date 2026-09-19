@@ -1,45 +1,61 @@
 import { NextResponse } from "next/server";
+import crypto from "crypto";
 import bcrypt from "bcrypt";
+import { z } from "zod";
 import { db } from "@/lib/db";
+
+const resetPasswordSchema = z.object({
+  token: z.string().min(1, "Reset token is required"),
+  email: z.string().trim().email("Invalid email address").toLowerCase(),
+  password: z.string().min(6, "Password must be at least 6 characters long"),
+});
 
 export async function POST(req: Request) {
   try {
-    const { token, email, password } = await req.json();
+    const body = await req.json();
 
-    if (!token || !email || !password) {
+    const validation = resetPasswordSchema.safeParse(body);
+    if (!validation.success) {
       return NextResponse.json(
-        { error: "Invalid or missing parameters." },
-        { status: 400 }
+        {
+          error:
+            validation.error.issues[0]?.message || "Invalid input parameters.",
+        },
+        { status: 400 },
       );
     }
+    const { token, email, password } = validation.data;
 
-    if (password.length < 6) {
-      return NextResponse.json(
-        { error: "Password must be at least 6 characters long." },
-        { status: 400 }
-      );
-    }
-
-    const normalizedEmail = email.toLowerCase().trim();
+    const hashedResetToken = crypto
+      .createHash("sha256")
+      .update(token)
+      .digest("hex");
 
     const user = await db.user.findFirst({
       where: {
-        email: normalizedEmail,
-        resetToken: token,
+        email,
+        resetToken: hashedResetToken,
+      },
+      select: {
+        id: true,
+        resetTokenExpiry: true,
       },
     });
 
     if (!user || !user.resetTokenExpiry) {
       return NextResponse.json(
         { error: "Invalid or expired password reset link." },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     if (new Date() > new Date(user.resetTokenExpiry)) {
       return NextResponse.json(
-        { error: "This password reset link has expired. Please request a new one." },
-        { status: 400 }
+        {
+          error:
+            "This password reset link has expired. Please request a new one.",
+        },
+        { status: 400 },
       );
     }
 
@@ -55,14 +71,14 @@ export async function POST(req: Request) {
     });
 
     return NextResponse.json(
-      { message: "Password updated successfully! You can now log in." },
-      { status: 200 }
+      { message: "Password updated successfully!" },
+      { status: 200 },
     );
   } catch (error) {
-    console.error("Reset Password Error:", error);
+    console.error("[RESET_PASSWORD_ERROR]:", error);
     return NextResponse.json(
       { error: "Something went wrong. Please try again later." },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

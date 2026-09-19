@@ -8,12 +8,28 @@ export const authConfig = {
   callbacks: {
     authorized({ auth, request: { nextUrl } }) {
       const isLoggedIn = !!auth?.user;
-      const isOnDashboard = nextUrl.pathname.startsWith("/user");
+      const pathname = nextUrl.pathname;
 
-      if (isOnDashboard) {
+      const isProtectedRoute = pathname.startsWith("/user");
+
+      if (isProtectedRoute) {
         if (isLoggedIn) return true;
-        return false;
+
+        const loginUrl = new URL("/login", nextUrl.origin);
+        loginUrl.searchParams.set("callbackUrl", pathname);
+        return Response.redirect(loginUrl);
       }
+
+      const isAuthRoute =
+        pathname.startsWith("/login") || pathname.startsWith("/register");
+
+      if (isAuthRoute) {
+        if (isLoggedIn) {
+          return Response.redirect(new URL("/user/dashboard", nextUrl.origin));
+        }
+        return true;
+      }
+
       return true;
     },
   },

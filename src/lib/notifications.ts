@@ -18,7 +18,7 @@ export async function CreateNotification({
   commentId,
 }: CreateNoticationParams) {
   try {
-    if (senderId === receiverId) return;
+    if (senderId === receiverId) return null;
 
     const notification = await db.notification.create({
       data: {
@@ -28,10 +28,13 @@ export async function CreateNotification({
         postId,
         commentId,
       },
-      include: {
+      select: {
+        id: true,
+        type: true,
+        postId: true,
+        receiverId: true,
         sender: {
           select: {
-            id: true,
             name: true,
             username: true,
             image: true,
@@ -41,14 +44,20 @@ export async function CreateNotification({
     });
 
     const channelName = `user-${receiverId}`;
-    await pusherServer.trigger(channelName, "new-notification", {
-      id: notification.id,
-      type: notification.type,
-      postId: notification.postId,
-      senderName:
-        notification.sender.name || notification.sender.username || "Someone",
-      senderImage: notification.sender.image,
-    });
+    const senderName =
+      notification.sender.name || notification.sender.username || "Someone";
+
+    pusherServer
+      .trigger(channelName, "new-notification", {
+        id: notification.id,
+        type: notification.type,
+        postId: notification.postId,
+        senderName,
+        senderImage: notification.sender.image,
+      })
+      .catch((err) => {
+        console.error("[PUSHER_TRIGGER_ERROR]:", err);
+      });
 
     return notification;
   } catch (error) {

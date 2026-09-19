@@ -1,59 +1,79 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
 import bcrypt from "bcrypt";
+import { z } from "zod";
 import { db } from "@/lib/db";
 import { transporter } from "@/lib/nodemailer";
+
+const registerSchema = z.object({
+  name: z.string().trim().min(2, "Name must be at least 2 characters").max(50),
+  username: z
+    .string()
+    .trim()
+    .min(3, "Username must be at least 3 characters")
+    .max(30)
+    .regex(/^[a-zA-Z0-9_]+$/, "Username can only contain letters, numbers, and underscores"),
+  email: z.string().trim().email("Invalid email address").toLowerCase(),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+});
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { name, username, email, password } = body;
 
-    if (!name || !username || !email || !password) {
+    const validation = registerSchema.safeParse(body);
+    if (!validation.success) {
       return NextResponse.json(
         {
           success: false,
-          message: "Missing required fields",
+          message: validation.error.issues[0].message,
         },
         { status: 400 }
       );
     }
 
-    const existingEmail = await db.user.findUnique({
-      where: { email },
+    const { name, username, email, password } = validation.data;
+
+    const existingUser = await db.user.findFirst({
+      where: {
+        OR: [{ email }, { username }],
+      },
+      select: {
+        email: true,
+        username: true,
+      },
     });
 
-    if (existingEmail) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Email already exists",
-          field: "email",
-        },
-        { status: 409 }
-      );
+    if (existingUser) {
+      if (existingUser.email === email) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: "Email already exists",
+            field: "email",
+          },
+          { status: 409 }
+        );
+      }
+      if (existingUser.username === username) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: "Username already taken",
+            field: "username",
+          },
+          { status: 409 }
+        );
+      }
     }
-
-    const existingUsername = await db.user.findUnique({
-      where: { username },
-    });
-
-    if (existingUsername) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Username already taken",
-          field: "username",
-        },
-        { status: 409 }
-      );
-    }
-
-    const hashedPassword = await bcrypt.hash(password, 10);
 
     const plainOtp = crypto.randomInt(100000, 999999).toString();
-    const hashedOtp = await bcrypt.hash(plainOtp, 10);
     const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
+
+    const [hashedPassword, hashedOtp] = await Promise.all([
+      bcrypt.hash(password, 10),
+      bcrypt.hash(plainOtp, 10),
+    ]);
 
     const user = await db.user.create({
       data: {
@@ -64,6 +84,12 @@ export async function POST(req: Request) {
         emailVerified: null,
         otpCode: hashedOtp,
         otpExpiry,
+      },
+      select: {
+        id: true,
+        name: true,
+        username: true,
+        email: true,
       },
     });
 
@@ -85,18 +111,15 @@ export async function POST(req: Request) {
       `,
     };
 
-    await transporter.sendMail(mailOptions);
+    transporter.sendMail(mailOptions).catch((err) => {
+      console.error("[REGISTER_MAIL_SEND_ERROR]:", err);
+    });
 
     return NextResponse.json(
       {
         success: true,
         message: "Account created! Please check your email for the verification code.",
-        user: {
-          id: user.id,
-          name: user.name,
-          username: user.username,
-          email: user.email,
-        },
+        user,
       },
       { status: 201 }
     );
