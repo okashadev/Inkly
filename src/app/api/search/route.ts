@@ -1,59 +1,75 @@
+import { type NextRequest } from "next/server";
 import { db } from "@/lib/db";
-import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const query = searchParams.get("q");
+    const query = searchParams.get("q")?.trim();
 
-    if (!query || query.trim() === "") {
-      return NextResponse.json(
+    if (!query) {
+      return Response.json(
         {
           success: true,
+          count: 0,
           data: [],
         },
         { status: 200 },
       );
     }
 
-    const searchTerm = query.trim();
-
     const results = await db.post.findMany({
       where: {
+        published: true,
         OR: [
           {
             title: {
-              contains: searchTerm,
+              contains: query,
               mode: "insensitive",
             },
           },
           {
             description: {
-              contains: searchTerm,
+              contains: query,
               mode: "insensitive",
             },
           },
           {
             category: {
               name: {
-                contains: searchTerm,
+                contains: query,
                 mode: "insensitive",
               },
             },
           },
         ],
       },
-      include: {
+      take: 20,
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        coverImage: true,
+        createdAt: true,
+        views: true,
         category: {
           select: {
+            id: true,
             name: true,
             slug: true,
           },
         },
         author: {
           select: {
+            id: true,
             name: true,
+            username: true,
             image: true,
+          },
+        },
+        _count: {
+          select: {
+            likes: true,
+            comments: true,
           },
         },
       },
@@ -62,7 +78,7 @@ export async function GET(req: NextRequest) {
       },
     });
 
-    return NextResponse.json(
+    return Response.json(
       {
         success: true,
         count: results.length,
@@ -70,9 +86,9 @@ export async function GET(req: NextRequest) {
       },
       { status: 200 },
     );
-  } catch (error: any) {
-    console.error("Search API Error:", error);
-    return NextResponse.json(
+  } catch (error) {
+    console.error("[GET_SEARCH_BLOGS_ERROR]:", error);
+    return Response.json(
       {
         success: false,
         message: "Something went wrong fetching search results",

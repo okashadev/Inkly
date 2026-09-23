@@ -1,22 +1,38 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
 import bcrypt from "bcrypt";
+import { z } from "zod";
 import { db } from "@/lib/db";
 import { transporter } from "@/lib/nodemailer";
 
+const resendOtpSchema = z.object({
+  email: z.string().trim().email("Invalid email address").toLowerCase(),
+});
+
 export async function POST(req: Request) {
   try {
-    const { email } = await req.json();
+    const body = await req.json();
 
-    if (!email) {
+    const validation = resendOtpSchema.safeParse(body);
+    if (!validation.success) {
       return NextResponse.json(
-        { message: "Email address is required" },
+        {
+          message:
+            validation.error.issues[0]?.message || "Invalid email address",
+        },
         { status: 400 },
       );
     }
 
+    const { email } = validation.data;
+
     const user = await db.user.findUnique({
       where: { email },
+      select: {
+        id: true,
+        emailVerified: true,
+        otpExpiry: true,
+      },
     });
 
     if (!user) {
@@ -33,9 +49,23 @@ export async function POST(req: Request) {
       );
     }
 
+    if (user.otpExpiry) {
+      const lastSentTime = new Date(user.otpExpiry).getTime() - 10 * 60 * 1000;
+      const timeDifference = Date.now() - lastSentTime;
+
+      if (timeDifference < 60 * 1000) {
+        const remainingSeconds = Math.ceil((60 * 1000 - timeDifference) / 1000);
+        return NextResponse.json(
+          {
+            message: `Please wait ${remainingSeconds} seconds before requesting a new code.`,
+          },
+          { status: 429 },
+        );
+      }
+    }
+
     const plainOtp = crypto.randomInt(100000, 999999).toString();
     const hashedOtp = await bcrypt.hash(plainOtp, 10);
-
     const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
 
     await db.user.update({
@@ -51,7 +81,7 @@ export async function POST(req: Request) {
       to: email,
       subject: "Your Inkly Verification Code",
       html: `
-         <div style="font-family: Arial, sans-serif; background-color: #0b1326; padding: 40px; color: #ffffff; text-align: center;">
+        <div style="font-family: Arial, sans-serif; background-color: #0b1326; padding: 40px; color: #ffffff; text-align: center;">
           <div style="max-width: 480px; margin: 0 auto; background-color: #111c38; border-radius: 16px; padding: 32px; border: 1px solid #1e293b;">
             <h2 style="color: #6366f1; margin-bottom: 8px;">Inkly Verification Code!</h2>
             <p style="color: #94a3b8; font-size: 14px;">Use the verification code below to verify your email address:</p>
@@ -64,7 +94,9 @@ export async function POST(req: Request) {
       `,
     };
 
-    await transporter.sendMail(mailOptions);
+    await transporter.sendMail(mailOptions).catch((err) => {
+      console.error("[RESEND_OTP_ERROR]:", err);
+    });
 
     return NextResponse.json(
       { message: "A new verification code has been sent to your email." },

@@ -1,17 +1,13 @@
-import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { auth } from "@/auth";
 
-export async function GET(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
+export async function GET({ params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
 
     if (!id) {
-      return NextResponse.json(
-        { error: "Author ID is required" },
+      return Response.json(
+        { success: false, error: "Author ID is required" },
         { status: 400 },
       );
     }
@@ -29,6 +25,9 @@ export async function GET(
         bio: true,
         createdAt: true,
         posts: {
+          where: {
+            published: true,
+          },
           select: {
             id: true,
             title: true,
@@ -53,53 +52,65 @@ export async function GET(
         },
         _count: {
           select: {
-            posts: true,
+            posts: {
+              where: {
+                published: true,
+              },
+            },
             followers: true,
             following: true,
           },
         },
+        ...(currentUserId && {
+          followers: {
+            where: {
+              followerId: currentUserId,
+            },
+            select: {
+              followerId: true,
+            },
+            take: 1,
+          },
+          following: {
+            where: {
+              followingId: currentUserId,
+            },
+            select: {
+              followingId: true,
+            },
+            take: 1,
+          },
+        }),
       },
     });
 
     if (!author) {
-      return NextResponse.json({ error: "Author not found" }, { status: 404 });
+      return Response.json(
+        { success: false, error: "Author not found" },
+        { status: 404 },
+      );
     }
 
-    let isFollowing = false;
-    let isFollower = false;
+    const isFollowing = Boolean(
+      author.followers && author.followers.length > 0,
+    );
+    const isFollower = Boolean(author.following && author.following.length > 0);
 
-    if (currentUserId && author?.id) {
-      const followRecord = await db.follow.findFirst({
-        where: {
-          followerId: currentUserId,
-          followingId: author?.id,
-        },
-      });
+    const { followers, following, ...authorData } = author;
 
-      const followerRecord = await db.follow.findFirst({
-        where: {
-          followerId: author?.id,
-          followingId: currentUserId,
-        },
-      });
-
-      isFollowing = !!followRecord;
-      isFollower = !!followerRecord;
-    }
-
-    return NextResponse.json(
+    return Response.json(
       {
         success: true,
-        author: author,
+        author: authorData,
         isFollowing,
         isFollower,
       },
       { status: 200 },
     );
-  } catch (error: any) {
-    console.error("Error fetching author profile:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch author profile" },
+  } catch (error) {
+    console.error("[GET_AUTHOR_PROFILE_ERROR]:", error);
+    return Response.json(
+      { success: false, error: "Failed to fetch author profile" },
       { status: 500 },
     );
   }

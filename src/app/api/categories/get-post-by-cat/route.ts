@@ -1,27 +1,40 @@
+import { type NextRequest } from "next/server";
 import { db } from "@/lib/db";
-import { NextResponse } from "next/server";
 
-export async function GET(req: Request) {
+export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const slug = searchParams.get("slug");
+    const slug = searchParams.get("slug")?.trim();
 
     if (!slug) {
-      return NextResponse.json(
+      return Response.json(
         { success: false, error: "Category slug is required." },
         { status: 400 },
       );
     }
 
-    const blogByCat = await db.post.findMany({
+    const blogs = await db.post.findMany({
       where: {
+        published: true,
         category: {
           slug: slug,
         },
       },
-      orderBy: [{ createdAt: "desc" }],
-      include: {
-        category: true,
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        coverImage: true,
+        createdAt: true,
+        views: true,
+        category: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+          },
+        },
         author: {
           select: {
             id: true,
@@ -33,34 +46,25 @@ export async function GET(req: Request) {
         _count: {
           select: {
             likes: true,
+            comments: true,
           },
         },
       },
     });
 
-    if (blogByCat.length === 0) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "No Blogs found in this category.",
-        },
-        { status: 404 },
-      );
-    }
-
-    return NextResponse.json(
+    return Response.json(
       {
         success: true,
-        blogs: blogByCat,
+        blogs,
       },
       { status: 200 },
     );
-  } catch (error: any) {
-    console.error("Get Blog By Category Error:", error);
-    return NextResponse.json(
+  } catch (error) {
+    console.error("[GET_BLOGS_BY_CATEGORY_ERROR]:", error);
+    return Response.json(
       {
         success: false,
-        error: error.message || "Failed to fetch blogs",
+        error: "Failed to fetch blogs for this category.",
       },
       { status: 500 },
     );

@@ -1,8 +1,8 @@
-import { auth } from "@/auth";
+import { type NextRequest } from "next/server";
 import { db } from "@/lib/db";
-import { NextResponse } from "next/server";
+import { auth } from "@/auth";
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const query = searchParams.get("q")?.trim();
@@ -23,7 +23,9 @@ export async function GET(request: Request) {
           bio: true,
           _count: {
             select: {
-              posts: true,
+              posts: {
+                where: { published: true },
+              },
               followers: true,
             },
           },
@@ -31,24 +33,25 @@ export async function GET(request: Request) {
         take: 10,
       });
 
-      return NextResponse.json(searchedAuthors);
+      return Response.json(
+        {
+          success: true,
+          authors: searchedAuthors,
+        },
+        { status: 200 }
+      );
     }
 
     const session = await auth();
     const currentUserId = session?.user?.id;
 
-    const whereCondition = currentUserId ? { id: { not: currentUserId } } : {};
-
-    const count = await db.user.count({
-      where: whereCondition,
-    });
-    const take = 3;
-    const skip = Math.max(0, Math.floor(Math.random() * (count - take)));
-
-    const randomAuthors = await db.user.findMany({
-      where: whereCondition,
-      take: take,
-      skip: skip,
+    const recommendedAuthors = await db.user.findMany({
+      where: currentUserId ? { id: { not: currentUserId } } : {},
+      take: 3,
+      orderBy: [
+        { followers: { _count: "desc" } },
+        { posts: { _count: "desc" } },
+      ],
       select: {
         id: true,
         name: true,
@@ -57,19 +60,27 @@ export async function GET(request: Request) {
         bio: true,
         _count: {
           select: {
-            posts: true,
+            posts: {
+              where: { published: true },
+            },
             followers: true,
           },
         },
       },
     });
 
-    return NextResponse.json(randomAuthors);
-  } catch (error: any) {
-    console.error("Error fetching authors:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch authors" },
-      { status: 500 },
+    return Response.json(
+      {
+        success: true,
+        authors: recommendedAuthors,
+      },
+      { status: 200 }
+    );
+  } catch (error) {
+    console.error("[GET_SEARCH_AUTHORS_ERROR]:", error);
+    return Response.json(
+      { success: false, error: "Failed to fetch authors" },
+      { status: 500 }
     );
   }
 }

@@ -1,65 +1,129 @@
-import { NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { type NextRequest } from "next/server";
+import { z } from "zod";
 import { auth } from "@/auth";
+import { db } from "@/lib/db";
 import { CreateNotification } from "@/lib/notifications";
 
-export async function GET(req: Request) {
+const createCommentSchema = z.object({
+  postId: z.string().trim().min(1, "Post ID is required."),
+  content: z
+    .string()
+    .trim()
+    .min(1, "Comment content cannot be empty.")
+    .max(1000, "Comment cannot exceed 1000 characters."),
+});
+
+export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const postId = searchParams.get("postId");
+    const postId = searchParams.get("postId")?.trim();
 
     if (!postId) {
-      return NextResponse.json(
-        { success: false, error: "Post ID is required" },
+      return Response.json(
+        { success: false, error: "Post ID is required." },
         { status: 400 },
       );
     }
 
-    const comments = await db.comment.findMany({
-      where: { postId },
-      orderBy: { createdAt: "desc" },
-      include: {
-        author: {
-          select: { id: true, name: true, image: true, username: true },
-        },
-      },
-    });
+    const rawPage = parseInt(searchParams.get("page") || "1", 10);
+    const rawLimit = parseInt(searchParams.get("limit") || "20", 10);
 
-    return NextResponse.json(
+    const page = !isNaN(rawPage) && rawPage > 0 ? rawPage : 1;
+    const limit =
+      !isNaN(rawLimit) && rawLimit > 0 && rawLimit <= 50 ? rawLimit : 20;
+    const skip = (page - 1) * limit;
+
+    const [comments, totalComments] = await Promise.all([
+      db.comment.findMany({
+        where: { postId },
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit,
+        select: {
+          id: true,
+          content: true,
+          createdAt: true,
+          updatedAt: true,
+          author: {
+            select: {
+              id: true,
+              name: true,
+              username: true,
+              image: true,
+            },
+          },
+        },
+      }),
+
+      db.comment.count({
+        where: { postId },
+      }),
+    ]);
+
+    const totalPages = Math.ceil(totalComments / limit) || 1;
+
+    return Response.json(
       {
         success: true,
-        comments,
+        data: {
+          comments,
+          pagination: {
+            page,
+            limit,
+            totalComments,
+            totalPages,
+            hasNextPage: page < totalPages,
+          },
+        },
       },
       { status: 200 },
     );
-  } catch (error: any) {
-    console.error("GET Comments Error:", error);
-    return NextResponse.json(
-      { success: false, error: "Failed to fetch comments" },
+  } catch (error) {
+    console.error("[GET_COMMENTS_ERROR]:", error);
+    return Response.json(
+      { success: false, error: "Failed to fetch comments." },
       { status: 500 },
     );
   }
 }
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
     const session = await auth();
 
-    if (!session || !session.user?.id) {
-      return NextResponse.json(
-        { success: false, error: "Unauthorized access" },
+    if (!session?.user?.id) {
+      return Response.json(
+        { success: false, error: "Unauthorized access." },
         { status: 401 },
       );
     }
 
-    const { postId, content } = await req.json();
+    const userId = session.user.id;
 
-    if (!postId || !content || content.trim() === "") {
-      return NextResponse.json(
-        { success: false, error: "Post ID and comment content are required" },
+    let body = {};
+    try {
+      body = await req.json();
+    } catch {
+      return Response.json(
+        { success: false, error: "Invalid JSON body." },
         { status: 400 },
       );
     }
+
+    const parseResult = createCommentSchema.safeParse(body);
+
+    if (!parseResult.success) {
+      return Response.json(
+        {
+          success: false,
+          error: "Validation failed.",
+          details: parseResult.error.flatten().fieldErrors,
+        },
+        { status: 400 },
+      );
+    }
+
+    const { postId, content } = parseResult.data;
 
     const postExists = await db.post.findUnique({
       where: { id: postId },
@@ -67,51 +131,63 @@ export async function POST(req: Request) {
     });
 
     if (!postExists) {
-      return NextResponse.json(
-        { success: false, error: "Post not found" },
+      return Response.json(
+        { success: false, error: "Post not found." },
         { status: 404 },
       );
     }
 
     const newComment = await db.comment.create({
       data: {
-        content: content.trim(),
+        content,
         postId,
-        authorId: session.user.id,
+        authorId: userId,
       },
-      include: {
+      select: {
+        id: true,
+        content: true,
+        createdAt: true,
+        updatedAt: true,
         author: {
           select: {
             id: true,
             name: true,
-            image: true,
             username: true,
+            image: true,
           },
         },
       },
     });
 
-    await CreateNotification({
-      type: "COMMENT",
-      senderId: session.user.id,
-      receiverId: postExists.authorId,
-      postId: postId,
-      commentId: newComment.id,
-    });
+    if (postExists.authorId !== userId) {
+      CreateNotification({
+        type: "COMMENT",
+        senderId: userId,
+        receiverId: postExists.authorId,
+        postId,
+        commentId: newComment.id,
+      }).catch((err) => {
+        console.error("Failed to trigger comment notification:", err);
+      });
+    }
 
-    const totalComments = await db.comment.count({
+    const commentsCount = await db.comment.count({
       where: { postId },
     });
 
-    return NextResponse.json({
-      success: true,
-      comment: newComment,
-      commentsCount: totalComments,
-    });
-  } catch (error: any) {
-    console.error("POST Comment Error:", error);
-    return NextResponse.json(
-      { success: false, error: "Something went wrong while posting comment" },
+    return Response.json(
+      {
+        success: true,
+        message: "Comment added successfully.",
+        comment: newComment,
+        commentsCount,
+      },
+      { status: 201 },
+    );
+  } catch (error) {
+    console.error("[POST_COMMENT_ERROR]:", error);
+    return Response.json(
+      { success: false, error: "Failed to post comment." },
       { status: 500 },
     );
   }

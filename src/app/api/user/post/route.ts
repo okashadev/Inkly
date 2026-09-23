@@ -1,28 +1,26 @@
-import { NextResponse } from "next/server";
+import { type NextRequest } from "next/server";
+import { Prisma } from "@prisma/client";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 
-export async function GET(req: Request) {
+export async function GET(req: NextRequest) {
   try {
     const session = await auth();
 
-    if (!session || !session?.user?.id) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Unauthorized access",
-        },
+    if (!session?.user?.id) {
+      return Response.json(
+        { success: false, error: "Unauthorized access" },
         { status: 401 },
       );
     }
 
-    const userId = session?.user?.id;
+    const userId = session.user.id;
+
     const { searchParams } = new URL(req.url);
-
     const status = searchParams.get("status");
-    const search = searchParams.get("search") || "";
+    const search = searchParams.get("search")?.trim() || "";
 
-    const whereCondition: any = {
+    const whereCondition: Prisma.PostWhereInput = {
       authorId: userId,
     };
 
@@ -32,7 +30,7 @@ export async function GET(req: Request) {
       whereCondition.published = false;
     }
 
-    if (search.trim() !== "") {
+    if (search !== "") {
       whereCondition.OR = [
         { title: { contains: search, mode: "insensitive" } },
         { description: { contains: search, mode: "insensitive" } },
@@ -44,9 +42,28 @@ export async function GET(req: Request) {
         db.post.findMany({
           where: whereCondition,
           orderBy: { createdAt: "desc" },
-          include: {
+          select: {
+            id: true,
+            title: true,
+            slug: true,
+            description: true,
+            coverImage: true,
+            published: true,
+            views: true,
+            createdAt: true,
+            updatedAt: true,
             category: {
-              select: { id: true, name: true, slug: true },
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+              },
+            },
+            _count: {
+              select: {
+                likes: true,
+                comments: true,
+              },
             },
           },
         }),
@@ -58,22 +75,25 @@ export async function GET(req: Request) {
         }),
       ]);
 
-    return NextResponse.json(
+    const publishedCount = totalBlogsCount - draftCount;
+
+    return Response.json(
       {
         success: true,
         stats: {
           totalBlogs: totalBlogsCount,
+          publishedCount,
           draftsCount: draftCount,
           totalViews: aggregateViews._sum.views || 0,
         },
-        posts: posts,
+        posts,
       },
       { status: 200 },
     );
-  } catch (error: any) {
-    console.error("My Blogs API Error:", error);
-    return NextResponse.json(
-      { success: false, error: error.message || "Failed to load user blogs" },
+  } catch (error) {
+    console.error("[MY_BLOGS_GET_ERROR]:", error);
+    return Response.json(
+      { success: false, error: "Failed to load user blogs." },
       { status: 500 },
     );
   }

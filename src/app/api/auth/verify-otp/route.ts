@@ -1,27 +1,39 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcrypt";
+import { z } from "zod";
 import { db } from "@/lib/db";
+
+const verifyOtpSchema = z.object({
+  email: z.string().trim().email("Invalid email address").toLowerCase(),
+  otp: z
+    .string()
+    .trim()
+    .length(6, "OTP must be a 6-digit code")
+    .regex(/^\d{6}$/, "OTP must contain only numbers"),
+});
 
 export async function POST(req: Request) {
   try {
-    const { email, otp } = await req.json();
+    const body = await req.json();
 
-    if (!email || !otp) {
+    const validation = verifyOtpSchema.safeParse(body);
+    if (!validation.success) {
       return NextResponse.json(
-        { message: "Email and OTP are required" },
+        { message: validation.error.issues[0]?.message || "Invalid input parameters." },
         { status: 400 }
       );
     }
 
-    if (otp.length !== 6) {
-      return NextResponse.json(
-        { message: "OTP must be a 6-digit code" },
-        { status: 400 }
-      );
-    }
+    const { email, otp } = validation.data;
 
     const user = await db.user.findUnique({
       where: { email },
+      select: {
+        id: true,
+        emailVerified: true,
+        otpCode: true,
+        otpExpiry: true,
+      },
     });
 
     if (!user) {

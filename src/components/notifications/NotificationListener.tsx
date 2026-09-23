@@ -1,9 +1,9 @@
 "use client";
 
+import { useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { pusherClient } from "@/lib/pusher";
 import { Bell, Heart, MessageSquare, UserPlus } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { useEffect, useRef } from "react";
 import { toast } from "sonner";
 
 interface NotificationData {
@@ -15,15 +15,15 @@ interface NotificationData {
 }
 
 interface NotificationListenerProps {
-  userId: string;
+  userId?: string;
 }
 
 export default function NotificationListener({
   userId,
 }: NotificationListenerProps) {
   const router = useRouter();
-
   const routerRef = useRef(router);
+
   useEffect(() => {
     routerRef.current = router;
   }, [router]);

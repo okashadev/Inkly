@@ -24,6 +24,7 @@ export async function POST(req: Request) {
 
     const successResponse = NextResponse.json(
       {
+        success: true,
         message:
           "If an account is associated with this email, we've sent a reset link. Please check your inbox and spam folder.",
       },
@@ -127,7 +128,7 @@ export async function POST(req: Request) {
       `,
     };
 
-    transporter.sendMail(mailOptions).catch((err) => {
+    await transporter.sendMail(mailOptions).catch((err) => {
       console.error("[FORGOT_PASSWORD_MAIL_ERROR]:", err);
     });
 

@@ -1,8 +1,45 @@
-import { NextResponse } from "next/server";
+import { type NextRequest } from "next/server";
+import crypto from "crypto";
+import { z } from "zod";
+import { auth } from "@/auth";
 import cloudinary from "@/lib/cloudinary";
 import { db } from "@/lib/db";
+import calculateReadingTime from "@/utils/calculateReadingTime";
 
-function generateSlug(title: string) {
+const createPostSchema = z
+  .object({
+    title: z.string().trim().optional(),
+    content: z.string().trim().optional().default(""),
+    description: z
+      .string()
+      .trim()
+      .transform((val) => (val === "" ? null : val))
+      .optional(),
+    categoryId: z
+      .string()
+      .trim()
+      .transform((val) => (val === "" ? null : val))
+      .optional(),
+    published: z.preprocess(
+      (val) => val === "true" || val === true,
+      z.boolean(),
+    ),
+  })
+  .refine(
+    (data) => {
+      // Direct conditional validation rule
+      if (data.published) {
+        return !!data.title && data.title.length > 0 && !!data.categoryId;
+      }
+      return true;
+    },
+    {
+      message: "Title and Category are required when publishing a post.",
+      path: ["published"],
+    },
+  );
+
+function generateSlug(title: string): string {
   const cleanTitle = title && title.trim() ? title : "untitled-draft";
   const baseSlug = cleanTitle
     .toLowerCase()
@@ -11,64 +48,119 @@ function generateSlug(title: string) {
     .replace(/[\s_-]+/g, "-")
     .replace(/^-+|-+$/g, "");
 
-  const uniqueSuffix = Math.random().toString(36).substring(2, 6);
+  const uniqueSuffix = crypto.randomBytes(3).toString("hex");
   return `${baseSlug}-${uniqueSuffix}`;
 }
 
-export async function POST(request: Request) {
+const ALLOWED_IMAGE_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/avif",
+];
+const MAX_FILE_SIZE = 5 * 1024 * 1024;
+
+export async function POST(req: NextRequest) {
   try {
-    const formData = await request.formData();
+    const session = await auth();
 
-    const rawTitle = formData.get("title") as string;
-    const content = formData.get("content") as string;
-    const description = (formData.get("description") as string) || null;
-    const categoryId = formData.get("categoryId") as string | null;
-    const readingTime = parseInt(
-      (formData.get("readingTime") as string) || "1",
-    );
-    const published = formData.get("published") === "true";
+    if (!session?.user?.id) {
+      return Response.json(
+        { success: false, error: "Unauthorized access." },
+        { status: 401 },
+      );
+    }
 
-    const authorId = (formData.get("authorId") as string) || "dummy_author_id";
+    const authorId = session.user.id;
+    const formData = await req.formData();
 
-    const title =
-      rawTitle && rawTitle.trim() !== "" ? rawTitle : "Untitled Draft";
+    const rawData = {
+      title: formData.get("title") as string,
+      content: formData.get("content") as string,
+      description: formData.get("description") as string,
+      categoryId: formData.get("categoryId") as string,
+      published: formData.get("published"),
+    };
 
-    if (published && (!rawTitle || !categoryId)) {
-      return NextResponse.json(
+    const validationResult = createPostSchema.safeParse(rawData);
+
+    if (!validationResult.success) {
+      const formattedErrors = validationResult.error.flatten().fieldErrors;
+      return Response.json(
         {
           success: false,
-          error: "Title and category are required to publish.",
+          error: "Validation failed.",
+          details: formattedErrors,
         },
         { status: 400 },
       );
     }
 
-    const slug = generateSlug(title);
+    const { content, description, categoryId, published } =
+      validationResult.data;
+    const rawTitle = validationResult.data.title;
+    const title = rawTitle && rawTitle !== "" ? rawTitle : "Untitled Draft";
+
+    if (categoryId) {
+      const categoryExists = await db.category.findUnique({
+        where: { id: categoryId },
+        select: { id: true },
+      });
+
+      if (!categoryExists) {
+        return Response.json(
+          { success: false, error: "Selected category does not exist." },
+          { status: 400 },
+        );
+      }
+    }
 
     const file = formData.get("coverImage") as File | null;
     let coverImageUrl: string | null = null;
 
     if (file && file.size > 0) {
+      if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+        return Response.json(
+          {
+            success: false,
+            error: "Invalid image format. Allowed: JPEG, PNG, WEBP, AVIF.",
+          },
+          { status: 400 },
+        );
+      }
+
+      if (file.size > MAX_FILE_SIZE) {
+        return Response.json(
+          { success: false, error: "Cover image size must be less than 5MB." },
+          { status: 400 },
+        );
+      }
+
       const arrayBuffer = await file.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
 
-      const uploadResult = await new Promise<any>((resolve, reject) => {
-        cloudinary.uploader
-          .upload_stream(
+      const uploadResult = await new Promise<{ secure_url: string }>(
+        (resolve, reject) => {
+          const uploadStream = cloudinary.uploader.upload_stream(
             {
               folder: "inkly_blog_covers",
               resource_type: "image",
+              transformation: [{ quality: "auto", fetch_format: "auto" }],
             },
             (error, result) => {
-              if (error) reject(error);
-              else resolve(result);
+              if (error || !result) reject(error || new Error("Upload failed"));
+              else resolve(result as { secure_url: string });
             },
-          )
-          .end(buffer);
-      });
+          );
+          uploadStream.end(buffer);
+        },
+      );
 
       coverImageUrl = uploadResult.secure_url;
     }
+
+    const slug = generateSlug(title);
+    const readingTime = calculateReadingTime(content);
 
     const newPost = await db.post.create({
       data: {
@@ -79,30 +171,35 @@ export async function POST(request: Request) {
         coverImage: coverImageUrl,
         readingTime,
         published,
-        author: {
-          connect: { id: authorId },
-        },
-        ...(categoryId ? { category: { connect: { id: categoryId } } } : {}),
+        authorId,
+        ...(categoryId ? { categoryId } : {}),
+      },
+      select: {
+        id: true,
+        title: true,
+        slug: true,
+        published: true,
+        coverImage: true,
+        createdAt: true,
       },
     });
 
-    return NextResponse.json(
+    return Response.json(
       {
         success: true,
         message: published
-          ? "Blog Published Successfully."
-          : "Draft Saved Successfully.",
+          ? "Blog published successfully."
+          : "Draft saved successfully.",
         post: newPost,
       },
       { status: 201 },
     );
-  } catch (error: any) {
-    console.error("Post Creation API Error:", error);
-
-    return NextResponse.json(
+  } catch (error) {
+    console.error("[CREATE_POST_API_ERROR]:", error);
+    return Response.json(
       {
         success: false,
-        error: error.message || "Failed to create post",
+        error: "Internal Server Error: Failed to create post.",
       },
       { status: 500 },
     );

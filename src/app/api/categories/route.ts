@@ -1,29 +1,35 @@
-import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 
 export async function GET() {
   try {
     const categories = await db.category.findMany({
       orderBy: { name: "asc" },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+      },
     });
-    return NextResponse.json(
+
+    return Response.json(
       {
         success: true,
         data: categories,
       },
-      { status: 200 },
+      {
+        status: 200,
+        headers: {
+          "Cache-Control": "public, s-maxage=300, stale-while-revalidate=3600",
+        },
+      },
     );
   } catch (error: any) {
-    console.error(
-      "❌ CRITICAL DATABASE SELECTION ERROR:",
-      error.message || error,
-    );
+    console.error("[GET_CATEGORIES_ERROR]:", error);
 
-    return NextResponse.json(
+    return Response.json(
       {
         success: false,
-        error: "Failed to fetch.",
-        details: error.message || "Unknown db sync issue",
+        error: "Failed to fetch categories.",
       },
       { status: 500 },
     );

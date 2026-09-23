@@ -1,51 +1,70 @@
-import { NextResponse } from "next/server";
-import cloudinary from "@/lib/cloudinary";
-import { db } from "@/lib/db";
+import { type NextRequest } from "next/server";
+import { z } from "zod";
 import { auth } from "@/auth";
+import { db } from "@/lib/db";
+import cloudinary from "@/lib/cloudinary";
 
-export async function PUT(req: Request) {
+const updateProfileSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(2, "Name must be at least 2 characters long.")
+    .max(50, "Name cannot exceed 50 characters."),
+  username: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .min(3, "Username must be at least 3 characters.")
+    .max(30, "Username cannot exceed 30 characters.")
+    .regex(
+      /^[a-zA-Z0-9_.]+$/,
+      "Username can only contain letters, numbers, underscores, and dots."
+    ),
+  bio: z.string().trim().max(160, "Bio cannot exceed 160 characters.").optional().nullable(),
+  image: z.string().optional().nullable(),
+});
+
+export async function PUT(req: NextRequest) {
   try {
     const session = await auth();
 
-    if (!session || !session.user?.id) {
-      return NextResponse.json(
-        { success: false, error: "Unauthorized access" },
-        { status: 401 },
+    if (!session?.user?.id) {
+      return Response.json(
+        { success: false, error: "Unauthorized access." },
+        { status: 401 }
       );
     }
 
     const userId = session.user.id;
-    const body = await req.json();
+    const body = await req.json().catch(() => ({}));
 
-    const { name, username, bio, image } = body;
+    const validation = updateProfileSchema.safeParse(body);
 
-    if (!name || !name.trim()) {
-      return NextResponse.json(
-        { success: false, error: "Name is required" },
-        { status: 400 },
+    if (!validation.success) {
+      return Response.json(
+        {
+          success: false,
+          error: "Validation failed.",
+          details: validation.error.flatten().fieldErrors,
+        },
+        { status: 400 }
       );
     }
 
-    if (!username || !username.trim()) {
-      return NextResponse.json(
-        { success: false, error: "Username is required" },
-        { status: 400 },
-      );
-    }
-
-    const trimmedUsername = username.trim();
+    const { name, username, bio, image } = validation.data;
 
     const existingUser = await db.user.findFirst({
       where: {
-        username: trimmedUsername,
+        username,
         NOT: { id: userId },
       },
+      select: { id: true },
     });
 
     if (existingUser) {
-      return NextResponse.json(
-        { success: false, error: "Username already taken" },
-        { status: 409 },
+      return Response.json(
+        { success: false, error: "Username is already taken." },
+        { status: 409 }
       );
     }
 
@@ -55,6 +74,11 @@ export async function PUT(req: Request) {
       const uploadResponse = await cloudinary.uploader.upload(image, {
         folder: "profile_pictures",
         resource_type: "image",
+        format: "webp",
+        transformation: [
+          { width: 500, height: 500, crop: "fill", gravity: "face" },
+          { quality: "auto" },
+        ],
       });
       imageUrl = uploadResponse.secure_url;
     }
@@ -62,10 +86,10 @@ export async function PUT(req: Request) {
     const updatedUser = await db.user.update({
       where: { id: userId },
       data: {
-        name: name.trim(),
-        username: trimmedUsername,
-        bio: bio !== undefined ? bio.trim() : undefined,
-        image: imageUrl !== undefined ? imageUrl : undefined,
+        name,
+        username,
+        bio: bio ?? undefined,
+        image: imageUrl ?? undefined,
       },
       select: {
         id: true,
@@ -77,16 +101,19 @@ export async function PUT(req: Request) {
       },
     });
 
-    return NextResponse.json({
-      success: true,
-      message: "Profile updated successfully",
-      user: updatedUser,
-    });
-  } catch (error: any) {
-    console.error("PROFILE_UPDATE_ERROR:", error);
-    return NextResponse.json(
+    return Response.json(
+      {
+        success: true,
+        message: "Profile updated successfully.",
+        user: updatedUser,
+      },
+      { status: 200 }
+    );
+  } catch (error) {
+    console.error("[PROFILE_UPDATE_ERROR]:", error);
+    return Response.json(
       { success: false, error: "Internal Server Error" },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }

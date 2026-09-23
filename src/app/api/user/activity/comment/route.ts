@@ -1,62 +1,67 @@
+import { type NextRequest } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
-import { NextResponse } from "next/server";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
     const session = await auth();
 
-    if (!session || !session?.user?.id) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Unauthorized Access!",
-        },
-        { status: 401 },
+    if (!session?.user?.id) {
+      return Response.json(
+        { success: false, error: "Unauthorized Access!" },
+        { status: 401 }
       );
     }
 
     const userId = session.user.id;
 
-    const userComments = await db.comment.findMany({
-      where: {
-        authorId: userId,
-      },
-      orderBy: { createdAt: "desc" },
-      include: {
-        post: {
-          select: {
-            id: true,
-            title: true,
-            coverImage: true,
-            description: true,
-          },
-        },
-        author: {
-          select: {
-            id: true,
-            name: true,
-            username: true,
-            image: true,
-          },
-        },
-      },
-    });
+    const { searchParams } = new URL(req.url);
+    const limit = Math.min(Number(searchParams.get("limit")) || 20, 50);
+    const page = Math.max(Number(searchParams.get("page")) || 1, 1);
+    const skip = (page - 1) * limit;
 
-    return NextResponse.json(
+    const [userComments, totalComments] = await Promise.all([
+      db.comment.findMany({
+        where: { authorId: userId },
+        orderBy: { createdAt: "desc" },
+        take: limit,
+        skip: skip,
+        select: {
+          id: true,
+          content: true,
+          createdAt: true,
+          updatedAt: true,
+          post: {
+            select: {
+              id: true,
+              title: true,
+              coverImage: true,
+              description: true,
+            },
+          },
+        },
+      }),
+      db.comment.count({ where: { authorId: userId } }),
+    ]);
+
+    return Response.json(
       {
         success: true,
         userComments,
+        pagination: {
+          total: totalComments,
+          page,
+          limit,
+          totalPages: Math.ceil(totalComments / limit),
+        },
       },
-      { status: 200 },
+      { status: 200 }
     );
-  } catch (error: any) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: error.message || "Failed to load Comments",
-      },
-      { status: 500 },
+  } catch (error) {
+    console.error("[GET_USER_COMMENTS_ERROR]:", error);
+    return Response.json(
+      { success: false, error: "Failed to load comments." },
+      { status: 500 }
     );
   }
 }

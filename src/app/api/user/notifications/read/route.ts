@@ -1,67 +1,82 @@
-import { NextResponse } from "next/server";
+import { type NextRequest } from "next/server";
+import { z } from "zod";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 
-export async function PATCH(req: Request) {
+const markReadSchema = z.object({
+  notificationId: z.string().trim().min(1).optional(),
+  markAll: z.boolean().optional(),
+});
+
+export async function PATCH(req: NextRequest) {
   try {
     const session = await auth();
 
-    if (!session || !session.user?.id) {
-      return NextResponse.json(
-        { success: false, error: "Unauthorized" },
-        { status: 401 }
+    if (!session?.user?.id) {
+      return Response.json(
+        { success: false, error: "Unauthorized access." },
+        { status: 401 },
       );
     }
 
     const userId = session.user.id;
-    
-    let notificationId: string | undefined;
+
+    let rawBody = {};
     try {
-      const body = await req.json();
-      notificationId = body.notificationId;
-    } catch {
+      rawBody = await req.json();
+    } catch {}
+
+    const parseResult = markReadSchema.safeParse(rawBody);
+
+    if (!parseResult.success) {
+      return Response.json(
+        {
+          success: false,
+          error: "Invalid request payload.",
+          details: parseResult.error.flatten().fieldErrors,
+        },
+        { status: 400 },
+      );
     }
 
-    if (notificationId) {
-      const updated = await db.notification.updateMany({
-        where: {
+    const { notificationId } = parseResult.data;
+
+    const whereClause = notificationId
+      ? {
           id: notificationId,
           receiverId: userId,
-        },
-        data: { read: true },
-      });
-
-      return NextResponse.json(
-        {
-          success: true,
-          message: "Notification marked as read",
-          count: updated.count,
-        },
-        { status: 200 }
-      );
-    } else {
-      const updated = await db.notification.updateMany({
-        where: {
+          read: false,
+        }
+      : {
           receiverId: userId,
           read: false,
-        },
-        data: { read: true },
-      });
+        };
 
-      return NextResponse.json(
-        {
-          success: true,
-          message: "All notifications marked as read",
-          count: updated.count,
-        },
-        { status: 200 }
-      );
-    }
+    const updated = await db.notification.updateMany({
+      where: whereClause,
+      data: { read: true },
+    });
+
+    const isSingle = !!notificationId;
+
+    return Response.json(
+      {
+        success: true,
+        message: isSingle
+          ? "Notification marked as read."
+          : "All notifications marked as read.",
+        count: updated.count,
+      },
+      { status: 200 },
+    );
   } catch (error) {
-    console.error("[MARK_READ_ERROR]:", error);
-    return NextResponse.json(
-      { success: false, error: "Internal Server Error" },
-      { status: 500 }
+    console.error("[MARK_NOTIFICATION_READ_ERROR]:", error);
+    return Response.json(
+      {
+        success: false,
+        error: "Internal Server Error: Failed to mark notification as read.",
+      },
+      { status: 500 },
     );
   }
 }

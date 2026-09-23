@@ -111,7 +111,7 @@ export async function POST(req: Request) {
       `,
     };
 
-    transporter.sendMail(mailOptions).catch((err) => {
+    await transporter.sendMail(mailOptions).catch((err) => {
       console.error("[REGISTER_MAIL_SEND_ERROR]:", err);
     });
 
