@@ -1,14 +1,14 @@
-import { NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { type NextRequest } from "next/server";
 import { auth } from "@/auth";
+import { db } from "@/lib/db";
 
-export async function GET(request: Request) {
+export async function GET(req: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const postId = searchParams.get("id");
+    const { searchParams } = new URL(req.url);
+    const postId = searchParams.get("id")?.trim();
 
     if (!postId) {
-      return NextResponse.json(
+      return Response.json(
         { success: false, error: "Post ID is required." },
         { status: 400 },
       );
@@ -18,10 +18,18 @@ export async function GET(request: Request) {
     const currentUserId = session?.user?.id;
 
     const post = await db.post.findUnique({
-      where: { id: postId, published: true },
+      where: {
+        id: postId,
+        published: true,
+      },
       include: {
         author: {
-          include: {
+          select: {
+            id: true,
+            name: true,
+            username: true,
+            image: true,
+            bio: true,
             _count: {
               select: {
                 followers: true,
@@ -30,8 +38,13 @@ export async function GET(request: Request) {
             },
           },
         },
-        category: true,
-        comments: true,
+        category: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+          },
+        },
         _count: {
           select: {
             likes: true,
@@ -42,8 +55,8 @@ export async function GET(request: Request) {
     });
 
     if (!post) {
-      return NextResponse.json(
-        { success: false, error: "Post not found." },
+      return Response.json(
+        { success: false, error: "Post not found or unpublished." },
         { status: 404 },
       );
     }
@@ -52,55 +65,64 @@ export async function GET(request: Request) {
     let isLiked = false;
     let isSaved = false;
 
-    if (currentUserId && post.author?.id) {
-      const followRecord = await db.follow.findFirst({
-        where: {
-          followerId: currentUserId,
-          followingId: post.author.id,
-        },
-      });
+    if (currentUserId) {
+      const [followRecord, likeRecord, savedRecord] = await Promise.all([
+        post.author?.id
+          ? db.follow.findUnique({
+              where: {
+                followerId_followingId: {
+                  followerId: currentUserId,
+                  followingId: post.author.id,
+                },
+              },
+              select: { id: true },
+            })
+          : null,
+
+        db.like.findUnique({
+          where: {
+            userId_postId: {
+              userId: currentUserId,
+              postId: post.id,
+            },
+          },
+          select: { id: true },
+        }),
+
+        db.savedPost.findUnique({
+          where: {
+            userId_postId: {
+              userId: currentUserId,
+              postId: post.id,
+            },
+          },
+          select: { id: true },
+        }),
+      ]);
 
       isFollowing = !!followRecord;
-    }
-
-    if (currentUserId && post.author?.id) {
-      const likesRecord = await db.like.findFirst({
-        where: {
-          userId: currentUserId,
-          postId: post.id,
-        },
-      });
-
-      isLiked = !!likesRecord;
-    }
-
-    if (currentUserId && post.author?.id) {
-      const savedRecord = await db.savedPost.findFirst({
-        where: {
-          userId: currentUserId,
-          postId: post.id,
-        },
-      });
-
+      isLiked = !!likeRecord;
       isSaved = !!savedRecord;
     }
 
-    return NextResponse.json(
+    return Response.json(
       {
         success: true,
         post,
-        isFollowing,
-        isLiked,
-        isSaved,
+        userState: {
+          isFollowing,
+          isLiked,
+          isSaved,
+        },
       },
       { status: 200 },
     );
-  } catch (error: any) {
-    console.error("Fetch Post Details Error:", error);
-    return NextResponse.json(
+  } catch (error) {
+    console.error("[FETCH_POST_DETAILS_ERROR]:", error);
+    return Response.json(
       {
         success: false,
-        error: error.message || "Failed to fetch post details.",
+        error: "Internal Server Error: Failed to fetch post details.",
       },
       { status: 500 },
     );

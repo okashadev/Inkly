@@ -7,7 +7,6 @@ import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import {
   Search,
-  UserPlus,
   BookOpen,
   Users,
   Sparkles,
@@ -56,7 +55,8 @@ export default function AuthorsPage() {
         );
         if (res.ok) {
           const data = await res.json();
-          setAuthors(data);
+          // console.log(data);
+          setAuthors(data.authors);
         }
       } catch (error) {
         console.error("Failed to fetch authors:", error);
@@ -77,7 +77,6 @@ export default function AuthorsPage() {
       <Navbar />
 
       <main className="pt-32 pb-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full">
-        {/* HERO / SEARCH HEADER */}
         <motion.header
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}

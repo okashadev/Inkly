@@ -119,7 +119,7 @@ export default function Navbar() {
             href="/blog"
             className="text-sm text-white/70 hover:text-white transition-colors"
           >
-            Blog
+            Blogs
           </Link>
 
           {/* Categories Dropdown */}
@@ -291,10 +291,7 @@ export default function Navbar() {
         {/* Mobile Hamburger Button */}
         <div className="flex md:hidden items-center gap-3">
           {user?.id && (
-            <NotificationBell
-              userId={user.id}
-              initialUnreadCount={0}
-            />
+            <NotificationBell userId={user.id} initialUnreadCount={0} />
           )}
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -339,7 +336,7 @@ export default function Navbar() {
                   onClick={() => setMobileMenuOpen(false)}
                   className="text-sm font-medium text-white/80 hover:text-white px-2 py-1"
                 >
-                  Blog
+                  Blogs
                 </Link>
                 <Link
                   href="/authors"

@@ -1,6 +1,5 @@
-import { NextResponse } from "next/server";
-import { db } from "@/lib/db";
 import { auth } from "@/auth";
+import { db } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
@@ -15,54 +14,85 @@ export async function GET() {
       },
       take: 3,
       orderBy: [
-        {
-          likes: {
-            _count: "desc",
-          },
-        },
-        {
-          comments: {
-            _count: "desc",
-          },
-        },
-        {
-          createdAt: "desc",
-        },
+        { likes: { _count: "desc" } },
+        { comments: { _count: "desc" } },
+        { createdAt: "desc" },
       ],
-      include: {
+      select: {
+        id: true,
+        title: true,
+        slug: true,
+        excerpt: true,
+        coverImage: true,
+        createdAt: true,
         author: {
-          select: { id: true, name: true, image: true, username: true },
+          select: {
+            id: true,
+            name: true,
+            username: true,
+            image: true,
+          },
         },
         category: {
-          select: { name: true },
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+          },
         },
-        _count: { select: { likes: true, comments: true } },
+        _count: {
+          select: {
+            likes: true,
+            comments: true,
+          },
+        },
       },
     });
 
-    let userSavedPostIds: string[] = [];
+    if (featuredPosts.length === 0) {
+      return Response.json(
+        {
+          success: true,
+          posts: [],
+        },
+        { status: 200 }
+      );
+    }
+
+
+    const postIds = featuredPosts.map((post) => post.id);
+
+    let savedPostIdsSet = new Set<string>();
 
     if (userId) {
       const savedPosts = await db.savedPost.findMany({
-        where: { userId },
+        where: {
+          userId,
+          postId: { in: postIds },
+        },
         select: { postId: true },
       });
-      userSavedPostIds = savedPosts.map((sp) => sp.postId);
+
+      savedPostIdsSet = new Set(savedPosts.map((sp) => sp.postId));
     }
 
-    return NextResponse.json(
+    const postsWithSaveState = featuredPosts.map((post) => ({
+      ...post,
+      isSaved: savedPostIdsSet.has(post.id),
+    }));
+
+    return Response.json(
       {
         success: true,
-        savedPostIds: userSavedPostIds,
-        posts: featuredPosts,
+        posts: postsWithSaveState,
       },
-      { status: 200 },
+      { status: 200 }
     );
-  } catch (error: any) {
-    console.error("FEATURED_POSTS_ERROR:", error);
-    return NextResponse.json(
-      { success: false, message: error.message || "Internal Server Error" },
-      { status: 500 },
+  } catch (error) {
+    console.error("[GET_FEATURED_POSTS_ERROR]:", error);
+    return Response.json(
+      { success: false, error: "Internal Server Error: Failed to fetch featured posts." },
+      { status: 500 }
     );
   }
 }

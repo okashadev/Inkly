@@ -1,16 +1,60 @@
+import { type NextRequest } from "next/server";
+import { cookies } from "next/headers";
+import { z } from "zod";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
-import { NextResponse } from "next/server";
 
-export async function POST(req: Request) {
+const viewIncrementSchema = z.object({
+  postId: z.string().trim().min(1, "Post ID is required."),
+});
+
+export async function POST(req: NextRequest) {
   try {
     const session = await auth();
-    const { postId } = await req.json();
+    const currentUserId = session?.user?.id;
 
-    if (!postId) {
-      return NextResponse.json(
-        { success: false, error: "Post ID is required" },
-        { status: 400 },
+    let body = {};
+    try {
+      body = await req.json();
+    } catch {
+      return Response.json(
+        { success: false, error: "Invalid JSON body." },
+        { status: 400 }
+      );
+    }
+
+    const parseResult = viewIncrementSchema.safeParse(body);
+    if (!parseResult.success) {
+      return Response.json(
+        {
+          success: false,
+          error: "Validation error.",
+          details: parseResult.error.flatten().fieldErrors,
+        },
+        { status: 400 }
+      );
+    }
+
+    const { postId } = parseResult.data;
+
+    const cookieStore = await cookies();
+    const viewCookieName = `viewed_post_${postId}`;
+    const hasViewedRecently = cookieStore.get(viewCookieName);
+
+    if (hasViewedRecently) {
+      const currentPost = await db.post.findUnique({
+        where: { id: postId },
+        select: { views: true },
+      });
+
+      return Response.json(
+        {
+          success: true,
+          views: currentPost?.views ?? 0,
+          incremented: false,
+          message: "View count already registered recently.",
+        },
+        { status: 200 }
       );
     }
 
@@ -20,18 +64,22 @@ export async function POST(req: Request) {
     });
 
     if (!post) {
-      return NextResponse.json(
-        { success: false, error: "Post not found" },
-        { status: 404 },
+      return Response.json(
+        { success: false, error: "Post not found." },
+        { status: 404 }
       );
     }
 
-    if (session?.user?.id && session.user.id === post.authorId) {
-      return NextResponse.json({
-        success: true,
-        views: post.views,
-        message: "Author view skipped",
-      });
+    if (currentUserId && currentUserId === post.authorId) {
+      return Response.json(
+        {
+          success: true,
+          views: post.views,
+          incremented: false,
+          message: "Author view skipped.",
+        },
+        { status: 200 }
+      );
     }
 
     const updatedPost = await db.post.update({
@@ -41,21 +89,32 @@ export async function POST(req: Request) {
           increment: 1,
         },
       },
-      select: { id: true, views: true },
+      select: { views: true },
     });
 
-    return NextResponse.json(
+    const response = Response.json(
       {
         success: true,
         views: updatedPost.views,
+        incremented: true,
       },
-      { status: 200 },
+      { status: 200 }
     );
-  } catch (error: any) {
-    console.error("Increment Views Error:", error);
-    return NextResponse.json(
-      { success: false, error: "Failed to increment post views" },
-      { status: 500 },
+
+    response.headers.append(
+      "Set-Cookie",
+      `${viewCookieName}=true; Max-Age=86400; Path=/; HttpOnly; SameSite=Lax`
+    );
+
+    return response;
+  } catch (error) {
+    console.error("[INCREMENT_VIEWS_ERROR]:", error);
+    return Response.json(
+      {
+        success: false,
+        error: "Internal Server Error: Failed to increment views.",
+      },
+      { status: 500 }
     );
   }
 }

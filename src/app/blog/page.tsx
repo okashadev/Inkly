@@ -8,7 +8,7 @@ import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import CTA from "@/components/home/CTA";
 import Spinner from "@/components/home/Spinner";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { Heart, Eye, MessageSquare, Loader2 } from "lucide-react";
 import { Post } from "@/types/post";
 import { formatTimeAgo } from "@/utils/formatTime";
@@ -35,15 +35,16 @@ const fadeUpVariants = {
 
 export default function BlogsPage() {
   const [authAction, setAuthAction] = useState<AuthActionType>("generic");
-  const [featuredPost, setFeaturedPost] = useState<Post | null>(null);
-  const [loadingMore, setLoadingMore] = useState<boolean>(false);
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
+  const [loadingMore, setLoadingMore] = useState<boolean>(false);
   const [hasMore, setHasMore] = useState<boolean>(true);
   const [posts, setPosts] = useState<Post[]>([]);
   const { status } = useSession();
 
   const [savedPostIds, setSavedPostIds] = useState<Set<string>>(new Set());
+
+  const observerTargetRef = useRef<HTMLDivElement | null>(null);
 
   const triggerAuthRequired = (action: AuthActionType) => {
     setAuthAction(action);
@@ -101,11 +102,14 @@ export default function BlogsPage() {
           }
           return updated;
         });
+        if (data.message) {
+          toast.success(data.message);
+        }
+      } else {
+        rollbackSave(postId, wasSaved);
+        toast.error(data.error || "Failed to update save status.");
       }
-      if (data.message) {
-        toast.success(data.message);
-      }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Failed to toggle Save:", error);
       rollbackSave(postId, wasSaved);
       toast.error("Something went wrong!");
@@ -113,41 +117,52 @@ export default function BlogsPage() {
   };
 
   useEffect(() => {
+    const controller = new AbortController();
+
     const fetchInitialFeed = async () => {
       try {
         const res = await fetch("/api/post/feed", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ excludeIds: [], limit: 6 }),
+          signal: controller.signal,
         });
         const data = await res.json();
 
         if (data.success) {
-          setFeaturedPost(data.featuredPost || null);
-          setPosts(data.posts || []);
+          const fetchedPosts: Post[] = data.posts || [];
+          setPosts(fetchedPosts);
+          setHasMore(Boolean(data.hasMore));
 
-          if (data.savedPostIds && Array.isArray(data.savedPostIds)) {
-            setSavedPostIds(new Set(data.savedPostIds));
-          }
+          const initialSavedIds = new Set<string>();
+          fetchedPosts.forEach((p: Post & { isSaved?: boolean }) => {
+            if (p.isSaved) {
+              initialSavedIds.add(p.id);
+            }
+          });
+          setSavedPostIds(initialSavedIds);
         }
-      } catch (err) {
-        console.error("Failed to fetch feed posts:", err);
+      } catch (err: unknown) {
+        if ((err as Error).name !== "AbortError") {
+          console.error("Failed to fetch feed posts:", err);
+        }
       } finally {
         setLoading(false);
       }
     };
 
     fetchInitialFeed();
+
+    return () => {
+      controller.abort();
+    };
   }, []);
 
-  const handleLoadMore = async () => {
-    if (loadingMore || !hasMore) return;
+  const handleLoadMore = useCallback(async () => {
+    if (loadingMore || !hasMore || loading) return;
     setLoadingMore(true);
 
     const currentIds = posts.map((p) => p.id);
-    if (featuredPost?.id) {
-      currentIds.push(featuredPost.id);
-    }
 
     try {
       const res = await fetch("/api/post/feed", {
@@ -162,32 +177,54 @@ export default function BlogsPage() {
 
         if (fetchedPosts.length === 0 || data.hasMore === false) {
           setHasMore(false);
+        } else {
+          setHasMore(Boolean(data.hasMore));
         }
 
         setPosts((prevPosts) => {
           const existingIds = new Set(prevPosts.map((p) => p.id));
-          const uniqueNewPosts = fetchedPosts.filter(
-            (p) => !existingIds.has(p.id),
-          );
+          const uniqueNewPosts = fetchedPosts.filter((p) => !existingIds.has(p.id));
           return [...prevPosts, ...uniqueNewPosts];
         });
 
-        if (data.savedPostIds && Array.isArray(data.savedPostIds)) {
-          setSavedPostIds((prev) => {
-            const updated = new Set(prev);
-            data.savedPostIds.forEach((id: string) => updated.add(id));
-            return updated;
+        setSavedPostIds((prev) => {
+          const updated = new Set(prev);
+          fetchedPosts.forEach((p: Post & { isSaved?: boolean }) => {
+            if (p.isSaved) {
+              updated.add(p.id);
+            }
           });
-        }
+          return updated;
+        });
       } else {
         setHasMore(false);
       }
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("Failed to load more posts:", err);
     } finally {
       setLoadingMore(false);
     }
-  };
+  }, [posts, loadingMore, hasMore, loading]);
+
+  useEffect(() => {
+    const target = observerTargetRef.current;
+    if (!target || !hasMore || loading) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && !loadingMore && hasMore) {
+          handleLoadMore();
+        }
+      },
+      { rootMargin: "300px" }
+    );
+
+    observer.observe(target);
+
+    return () => {
+      observer.unobserve(target);
+    };
+  }, [handleLoadMore, hasMore, loading, loadingMore]);
 
   if (status === "loading" || loading) {
     return (
@@ -205,7 +242,6 @@ export default function BlogsPage() {
       <Navbar />
 
       <main className="pt-32 md:pt-36 pb-24 px-4 sm:px-6 md:px-12 max-w-7xl mx-auto w-full">
-        {/* Header Section */}
         <motion.header
           variants={containerVariants}
           initial="hidden"
@@ -228,115 +264,6 @@ export default function BlogsPage() {
           </motion.p>
         </motion.header>
 
-        {/* Featured Article Hero Card */}
-        {featuredPost && (
-          <motion.section
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, ease: "easeOut" }}
-            className="mb-16 relative"
-          >
-            <div className="bg-[#131b2e]/80 border border-white/10 rounded-3xl overflow-hidden hover:border-blue-500/40 transition duration-300 grid grid-cols-1 lg:grid-cols-12 gap-0 shadow-2xl backdrop-blur-sm relative group">
-              <div className="lg:col-span-7 relative h-72 sm:h-96 lg:h-auto overflow-hidden bg-slate-900 flex items-center justify-center">
-                <Link
-                  href={`/blog/${featuredPost.id}`}
-                  className="absolute inset-0 z-0"
-                >
-                  {featuredPost.coverImage ? (
-                    <Image
-                      src={featuredPost.coverImage}
-                      alt={featuredPost.title}
-                      fill
-                      priority
-                      sizes="(max-width: 1024px) 100vw, 60vw"
-                      className="object-cover group-hover:scale-105 transition duration-700 ease-out"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <span className="text-slate-600 text-sm">
-                        No Cover Image
-                      </span>
-                    </div>
-                  )}
-                </Link>
-                <div className="absolute inset-0 bg-linear-to-t from-[#0b1326]/60 via-transparent to-transparent lg:hidden pointer-events-none" />
-              </div>
-
-              <div className="lg:col-span-5 p-6 sm:p-10 flex flex-col justify-between space-y-6 relative z-10">
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <span className="px-3 py-1 bg-blue-500/20 text-blue-300 rounded-full text-xs font-semibold tracking-wide uppercase border border-blue-500/30">
-                        {featuredPost.category?.name || "Featured"}
-                      </span>
-                      <span className="text-xs text-slate-400">
-                        Top Liked Story 🔥
-                      </span>
-                    </div>
-                    {/* Featured Post 3-Dot Menu */}
-                    <PostMenu
-                      post={featuredPost}
-                      savedPostIds={savedPostIds}
-                      onToggleSave={handleToggleSave}
-                    />
-                  </div>
-
-                  <Link href={`/blog/${featuredPost.id}`} className="block">
-                    <h2 className="text-2xl sm:text-3xl font-bold text-white group-hover:text-blue-400 transition duration-200 leading-snug">
-                      {featuredPost.title}
-                    </h2>
-                  </Link>
-
-                  <p className="text-slate-300/90 text-sm sm:text-base leading-relaxed line-clamp-3">
-                    {featuredPost.description || featuredPost.content}
-                  </p>
-                </div>
-
-                <div className="flex items-center justify-between pt-6 border-t border-white/10 text-xs text-slate-400">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full relative overflow-hidden bg-slate-800 border border-white/10 flex items-center justify-center text-slate-400 font-bold uppercase">
-                      {featuredPost.author?.image ? (
-                        <Image
-                          src={featuredPost.author.image}
-                          alt={featuredPost.author.name || "Author"}
-                          fill
-                          sizes="32px"
-                          className="object-cover"
-                        />
-                      ) : (
-                        (featuredPost.author?.name || "A")[0]
-                      )}
-                    </div>
-                    <span className="font-medium text-slate-200">
-                      {featuredPost.author?.name ||
-                        featuredPost.author?.username ||
-                        "Anonymous"}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <span>{formatTimeAgo(featuredPost.createdAt)}</span>
-                    <span>•</span>
-                    <span className="flex items-center gap-1">
-                      <Heart className="w-3.5 h-3.5 text-rose-400 fill-rose-400/20" />
-                      {featuredPost._count?.likes}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <MessageSquare className="w-3.5 h-3.5 text-blue-400" />
-                      {featuredPost._count?.comments}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Eye className="w-3.5 h-3.5 text-slate-400" />
-                      {featuredPost.views || 0}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </motion.section>
-        )}
-
-        {/* Standard Feed Grid */}
         {posts.length > 0 ? (
           <section className="space-y-12">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -376,7 +303,6 @@ export default function BlogsPage() {
                       </span>
                     </div>
 
-                    {/* Standard Feed Post 3-Dot Menu */}
                     <div className="absolute top-3 right-3 z-10 bg-[#0b1326]/60 backdrop-blur-md rounded-full">
                       <PostMenu
                         post={post}
@@ -393,11 +319,11 @@ export default function BlogsPage() {
                         <div className="flex items-center gap-2.5">
                           <span className="flex items-center gap-1">
                             <Heart className="w-3.5 h-3.5 text-rose-400 fill-rose-400/20" />
-                            {post._count?.likes}
+                            {post._count?.likes ?? 0}
                           </span>
                           <span className="flex items-center gap-1">
                             <MessageSquare className="w-3.5 h-3.5 text-blue-400" />
-                            {post._count?.comments}
+                            {post._count?.comments ?? 0}
                           </span>
                           <span className="flex items-center gap-1">
                             <Eye className="w-3.5 h-3.5 text-slate-400" />
@@ -436,8 +362,10 @@ export default function BlogsPage() {
               ))}
             </div>
 
+            <div ref={observerTargetRef} className="h-4 w-full" />
+
             {hasMore && (
-              <div className="flex justify-center pt-8">
+              <div className="flex justify-center pt-4">
                 <button
                   type="button"
                   onClick={handleLoadMore}

@@ -1,146 +1,181 @@
-import { NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { type NextRequest } from "next/server";
+import { z } from "zod";
 import { auth } from "@/auth";
+import { db } from "@/lib/db";
 
-export async function POST(request: Request) {
+const feedSchema = z.object({
+  limit: z.number().int().min(1).max(50).default(6),
+  excludeIds: z.array(z.string()).default([]),
+});
+
+export async function POST(req: NextRequest) {
   try {
-    const body = await request.json();
-    const limit = parseInt(body.limit || "6", 10);
-    const excludeIds: string[] = Array.isArray(body.excludeIds)
-      ? [...body.excludeIds]
-      : [];
-    const isInitialLoad = excludeIds.length === 0;
-
     const session = await auth();
     const userId = session?.user?.id;
 
-    let featuredPost = null;
-
-    if (isInitialLoad) {
-      featuredPost = await db.post.findFirst({
-        where: {
-          published: true,
-        },
-        orderBy: [
-          { likes: { _count: "desc" } },
-          { comments: { _count: "desc" } },
-        ],
-        include: {
-          author: {
-            select: { id: true, name: true, image: true, username: true },
-          },
-          category: { select: { name: true } },
-          _count: { select: { likes: true, comments: true } },
-        },
-      });
-
-      if (featuredPost) {
-        excludeIds.push(featuredPost.id);
-      }
+    let body = {};
+    try {
+      body = await req.json();
+    } catch {
+      return Response.json(
+        { success: false, error: "Invalid JSON payload." },
+        { status: 400 },
+      );
     }
 
-    let rawPosts: any[] = [];
+    const parseResult = feedSchema.safeParse(body);
+    if (!parseResult.success) {
+      return Response.json(
+        {
+          success: false,
+          error: "Invalid request payload.",
+          details: parseResult.error.issues[0].message,
+        },
+        { status: 400 },
+      );
+    }
+
+    const { limit, excludeIds } = parseResult.data;
+
+    const postSelectFields = {
+      id: true,
+      title: true,
+      slug: true,
+      description: true,
+      coverImage: true,
+      createdAt: true,
+      author: {
+        select: {
+          id: true,
+          name: true,
+          username: true,
+          image: true,
+        },
+      },
+      category: {
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+        },
+      },
+      _count: {
+        select: {
+          likes: true,
+          comments: true,
+        },
+      },
+    } as const;
+
+    let posts: Array<any> = [];
 
     if (!userId) {
-      rawPosts = await db.post.findMany({
+      posts = await db.post.findMany({
         where: {
           published: true,
           id: { notIn: excludeIds },
         },
         take: limit,
         orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-        include: {
-          author: {
-            select: { id: true, name: true, image: true, username: true },
-          },
-          category: { select: { name: true } },
-          _count: { select: { likes: true, comments: true } },
-        },
+        select: postSelectFields,
       });
     } else {
       const following = await db.follow.findMany({
         where: { followerId: userId },
         select: { followingId: true },
       });
-      const followingIds = following.map((f) => f.followingId);
 
-      let followedPosts: any[] = [];
+      const followingIds = following.map((f) => f.followingId);
+      const halfLimit = Math.ceil(limit / 2);
+
+      let followedPosts: Array<any> = [];
+
       if (followingIds.length > 0) {
         followedPosts = await db.post.findMany({
           where: {
             published: true,
-            id: { notIn: excludeIds },
             authorId: { in: followingIds },
+            id: { notIn: excludeIds },
           },
-          take: Math.ceil(limit / 2),
+          take: halfLimit,
           orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-          include: {
-            author: {
-              select: { id: true, name: true, image: true, username: true },
-            },
-            category: { select: { name: true } },
-            _count: { select: { likes: true, comments: true } },
-          },
+          select: postSelectFields,
         });
       }
 
       const currentExclude = [...excludeIds, ...followedPosts.map((p) => p.id)];
       const remainingTake = limit - followedPosts.length;
 
-      let remainingPosts: any[] = [];
+      let globalPosts: Array<any> = [];
       if (remainingTake > 0) {
-        remainingPosts = await db.post.findMany({
+        globalPosts = await db.post.findMany({
           where: {
             published: true,
             id: { notIn: currentExclude },
           },
           take: remainingTake,
           orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-          include: {
-            author: {
-              select: { id: true, name: true, image: true, username: true },
-            },
-            category: { select: { name: true } },
-            _count: { select: { likes: true, comments: true } },
-          },
+          select: postSelectFields,
         });
       }
 
-      rawPosts = [...followedPosts, ...remainingPosts];
+      posts = [...followedPosts, ...globalPosts];
     }
 
-    let userSavedPostIds: string[] = [];
-
-    if (userId) {
-      const savedPosts = await db.savedPost.findMany({
-        where: { userId },
-        select: { postId: true },
-      });
-      userSavedPostIds = savedPosts.map((sp) => sp.postId);
+    if (posts.length === 0) {
+      return Response.json(
+        {
+          success: true,
+          posts: [],
+          hasMore: false,
+        },
+        { status: 200 },
+      );
     }
 
-    const fetchedIds = [...excludeIds, ...rawPosts.map((p) => p.id)];
-    const remainingCount = await db.post.count({
-      where: {
-        published: true,
-        id: { notIn: fetchedIds },
-      },
-    });
+    const fetchedPostIds = posts.map((p) => p.id);
 
-    return NextResponse.json(
+    const [savedPosts, totalRemainingCount] = await Promise.all([
+      userId
+        ? db.savedPost.findMany({
+            where: {
+              userId,
+              postId: { in: fetchedPostIds },
+            },
+            select: { postId: true },
+          })
+        : [],
+
+      db.post.count({
+        where: {
+          published: true,
+          id: { notIn: [...excludeIds, ...fetchedPostIds] },
+        },
+      }),
+    ]);
+
+    const savedPostIdsSet = new Set(savedPosts.map((sp) => sp.postId));
+
+    const enrichedPosts = posts.map((post) => ({
+      ...post,
+      isSaved: savedPostIdsSet.has(post.id),
+    }));
+
+    return Response.json(
       {
         success: true,
-        featuredPost,
-        posts: rawPosts,
-        savedPostIds: userSavedPostIds,
-        hasMore: remainingCount > 0,
+        posts: enrichedPosts,
+        hasMore: totalRemainingCount > 0,
       },
       { status: 200 },
     );
-  } catch (error: any) {
-    console.error("HYBRID_FEED_ERROR:", error);
-    return NextResponse.json(
-      { success: false, message: error.message || "Internal Server Error" },
+  } catch (error) {
+    console.error("[HYBRID_FEED_ERROR]:", error);
+    return Response.json(
+      {
+        success: false,
+        error: "Internal Server Error: Failed to fetch feed posts.",
+      },
       { status: 500 },
     );
   }

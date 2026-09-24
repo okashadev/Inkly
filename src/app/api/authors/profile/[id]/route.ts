@@ -1,7 +1,11 @@
+import { type NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { auth } from "@/auth";
 
-export async function GET({ params }: { params: Promise<{ id: string }> }) {
+export async function GET(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
   try {
     const { id } = await params;
 

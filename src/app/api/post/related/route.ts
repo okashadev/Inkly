@@ -1,37 +1,66 @@
-import { NextResponse } from "next/server";
+import { type NextRequest } from "next/server";
+import { auth } from "@/auth";
 import { db } from "@/lib/db";
 
-export async function GET(request: Request) {
+export async function GET(req: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const categoryId = searchParams.get("categoryId");
-    const currentPostId = searchParams.get("currentPostId");
+    const { searchParams } = new URL(req.url);
+    const categoryId = searchParams.get("categoryId")?.trim();
+    const currentPostId = searchParams.get("currentPostId")?.trim();
 
     if (!categoryId || !currentPostId) {
-      return NextResponse.json(
+      return Response.json(
         {
           success: false,
-          message: "categoryId and currentPostId are required",
+          error:
+            "Both categoryId and currentPostId query parameters are required.",
         },
         { status: 400 },
       );
     }
 
+    const session = await auth();
+    const userId = session?.user?.id;
+
+    const selectPostFields = {
+      id: true,
+      title: true,
+      slug: true,
+      description: true,
+      coverImage: true,
+      createdAt: true,
+      author: {
+        select: {
+          id: true,
+          name: true,
+          username: true,
+          image: true,
+        },
+      },
+      category: {
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+        },
+      },
+      _count: {
+        select: {
+          likes: true,
+          comments: true,
+        },
+      },
+    } as const;
+
     let relatedPosts = await db.post.findMany({
       where: {
-        categoryId: categoryId,
+        categoryId,
         id: { not: currentPostId },
         published: true,
       },
       take: 3,
       orderBy: { createdAt: "desc" },
-      include: {
-        author: {
-          select: { id: true, name: true, image: true, username: true },
-        },
-        category: { select: { name: true } },
-        _count: { select: { likes: true, comments: true } },
-      },
+      select: selectPostFields,
     });
 
     if (relatedPosts.length < 3) {
@@ -45,26 +74,47 @@ export async function GET(request: Request) {
         },
         take: needed,
         orderBy: { createdAt: "desc" },
-        include: {
-          author: {
-            select: { id: true, name: true, image: true, username: true },
-          },
-          category: { select: { name: true } },
-          _count: { select: { likes: true, comments: true } },
-        },
+        select: selectPostFields,
       });
 
       relatedPosts = [...relatedPosts, ...fallbackPosts];
     }
 
-    return NextResponse.json(
-      { success: true, posts: relatedPosts },
+    if (relatedPosts.length === 0) {
+      return Response.json({ success: true, posts: [] }, { status: 200 });
+    }
+
+    const postIds = relatedPosts.map((p) => p.id);
+    let savedSet = new Set<string>();
+
+    if (userId) {
+      const savedPosts = await db.savedPost.findMany({
+        where: {
+          userId,
+          postId: { in: postIds },
+        },
+        select: { postId: true },
+      });
+
+      savedSet = new Set(savedPosts.map((sp) => sp.postId));
+    }
+
+    const enrichedPosts = relatedPosts.map((post) => ({
+      ...post,
+      isSaved: savedSet.has(post.id),
+    }));
+
+    return Response.json(
+      { success: true, posts: enrichedPosts },
       { status: 200 },
     );
-  } catch (error: any) {
-    console.error("RELATED_POSTS_ERROR:", error);
-    return NextResponse.json(
-      { success: false, message: error.message || "Internal Server Error" },
+  } catch (error) {
+    console.error("[RELATED_POSTS_ERROR]:", error);
+    return Response.json(
+      {
+        success: false,
+        error: "Internal Server Error: Failed to fetch related posts.",
+      },
       { status: 500 },
     );
   }

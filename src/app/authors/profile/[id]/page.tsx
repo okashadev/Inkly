@@ -67,6 +67,7 @@ export default function AuthorProfilePage({
       setIsLoading(true);
       try {
         const res = await fetch(`/api/authors/profile/${id}`);
+        console.log(res);
         if (res.ok) {
           const data = await res.json();
           setAuthor(data.author);

@@ -1,99 +1,138 @@
-import { NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { type NextRequest } from "next/server";
+import { z } from "zod";
 import { auth } from "@/auth";
+import { db } from "@/lib/db";
 import { CreateNotification } from "@/lib/notifications";
 
-export async function POST(req: Request) {
+const likeToggleSchema = z.object({
+  postId: z.string().trim().min(1, "Post ID is required."),
+});
+
+export async function POST(req: NextRequest) {
   try {
     const session = await auth();
 
-    if (!session || !session.user?.id) {
-      return NextResponse.json(
-        { success: false, error: "Unauthorized access" },
+    if (!session?.user?.id) {
+      return Response.json(
+        { success: false, error: "Unauthorized access." },
         { status: 401 },
-      );
-    }
-    const { postId } = await req.json();
-
-    if (!postId) {
-      return NextResponse.json(
-        { success: false, error: "Post ID is required" },
-        { status: 400 },
       );
     }
 
     const userId = session.user.id;
 
+    let body = {};
+    try {
+      body = await req.json();
+    } catch {
+      return Response.json(
+        { success: false, error: "Invalid JSON payload." },
+        { status: 400 },
+      );
+    }
+
+    const parseResult = likeToggleSchema.safeParse(body);
+
+    if (!parseResult.success) {
+      return Response.json(
+        {
+          success: false,
+          error: "Validation failed.",
+          details: parseResult.error.issues[0].message,
+        },
+        { status: 400 },
+      );
+    }
+
+    const { postId } = parseResult.data;
+
     const post = await db.post.findUnique({
       where: { id: postId },
+      select: { authorId: true },
     });
 
     if (!post) {
-      return NextResponse.json(
-        { success: false, error: "Post not found" },
+      return Response.json(
+        { success: false, error: "Post not found." },
         { status: 404 },
       );
     }
 
-    const existingLike = await db.like.findFirst({
-      where: {
-        postId: postId,
-        userId: userId,
-      },
-    });
-
-    let isLiked = false;
-
-    if (existingLike) {
-      await db.like.delete({
+    const { isLiked, totalLikes } = await db.$transaction(async (tx) => {
+      const existingLike = await tx.like.findFirst({
         where: {
-          id: existingLike.id,
+          postId,
+          userId,
         },
+        select: { id: true },
       });
 
-      await db.notification.deleteMany({
-        where: {
+      let currentlyLiked = false;
+
+      if (existingLike) {
+        await tx.like.delete({
+          where: { id: existingLike.id },
+        });
+        currentlyLiked = false;
+      } else {
+        await tx.like.create({
+          data: {
+            postId,
+            userId,
+          },
+        });
+        currentlyLiked = true;
+      }
+
+      const likesCount = await tx.like.count({
+        where: { postId },
+      });
+
+      return { isLiked: currentlyLiked, totalLikes: likesCount };
+    });
+
+    if (isLiked) {
+      if (post.authorId !== userId) {
+        CreateNotification({
           type: "LIKE",
           senderId: userId,
           receiverId: post.authorId,
-          postId: postId,
-        },
-      });
-
-      isLiked = false;
+          postId,
+        }).catch((err) => {
+          console.error("Failed to trigger like notification:", err);
+        });
+      }
     } else {
-      await db.like.create({
-        data: {
-          postId: postId,
-          userId: userId,
-        },
-      });
-
-      await CreateNotification({
-        type: "LIKE",
-        senderId: userId,
-        receiverId: post.authorId,
-        postId: postId,
-      });
-      isLiked = true;
+      db.notification
+        .deleteMany({
+          where: {
+            type: "LIKE",
+            senderId: userId,
+            receiverId: post.authorId,
+            postId,
+          },
+        })
+        .catch((err) => {
+          console.error("Failed to remove like notification on unlike:", err);
+        });
     }
 
-    const totalLikes = await db.like.count({
-      where: { postId: postId },
-    });
-
-    return NextResponse.json(
+    return Response.json(
       {
         success: true,
+        message: isLiked ? "Post liked." : "Post unliked.",
         isLiked,
         likesCount: totalLikes,
       },
       { status: 200 },
     );
-  } catch (error: any) {
-    console.error("Like API Error:", error);
-    return NextResponse.json(
-      { success: false, error: "Something went wrong" },
+  } catch (error) {
+    console.error("[LIKE_TOGGLE_API_ERROR]:", error);
+    return Response.json(
+      {
+        success: false,
+        error: "Internal Server Error: Failed to process like operation.",
+      },
       { status: 500 },
     );
   }
