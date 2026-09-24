@@ -22,7 +22,7 @@ export async function GET() {
         id: true,
         title: true,
         slug: true,
-        excerpt: true,
+        description: true,
         coverImage: true,
         createdAt: true,
         author: {

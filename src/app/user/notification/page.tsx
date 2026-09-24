@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import {
   Heart,
   MessageSquare,
@@ -15,8 +15,14 @@ import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { useSession } from "next-auth/react";
 import { User } from "@/types/user";
 import Spinner from "@/components/home/Spinner";
-import { useRouter } from "next/navigation";
 import { formatTimeAgo } from "@/utils/formatTime";
+
+interface NotificationSender {
+  id: string;
+  name: string | null;
+  username: string | null;
+  image: string | null;
+}
 
 interface NotificationItem {
   id: string;
@@ -24,12 +30,7 @@ interface NotificationItem {
   read: boolean;
   postId?: string | null;
   createdAt: string;
-  sender: {
-    id: string;
-    name: string | null;
-    username: string | null;
-    image: string | null;
-  };
+  sender: NotificationSender;
 }
 
 interface PaginationMeta {
@@ -47,42 +48,71 @@ export default function NotificationsPage() {
 
   const user = session?.user as User;
 
-  const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [markingAll, setMarkingAll] = useState(false);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [loadingMore, setLoadingMore] = useState<boolean>(false);
+  const [markingAll, setMarkingAll] = useState<boolean>(false);
 
   useEffect(() => {
+    let isMounted = true;
+
     async function initNotifications() {
       try {
         setLoading(true);
         const res = await fetch("/api/user/notifications?page=1&limit=10");
         const resData = await res.json();
 
-        if (resData.success) {
+        if (isMounted && resData.success) {
           setNotifications(resData.data.notifications);
           setPagination(resData.data.pagination);
           setUnreadCount(resData.data.unreadCount);
         }
       } catch (error) {
-        console.error("Failed to load notifications:", error);
+        console.error("[NOTIFICATIONS_INIT_ERROR]:", error);
       } finally {
-        setLoading(false);
+        if (isMounted) setLoading(false);
       }
     }
 
     initNotifications();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
+  const markAsRead = useCallback(
+    async (id: string, isAlreadyRead: boolean) => {
+      if (isAlreadyRead) return;
+
+      setNotifications((prev) =>
+        prev.map((item) => (item.id === id ? { ...item, read: true } : item))
+      );
+      setUnreadCount((prev) => Math.max(0, prev - 1));
+
+      try {
+        await fetch("/api/user/notifications/read", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ notificationId: id }),
+        });
+      } catch (error) {
+        console.error("[MARK_SINGLE_READ_ERROR]:", error);
+      }
+    },
+    []
+  );
+
   const handleLoadMore = async () => {
-    if (!pagination || pagination.page >= pagination.totalPages || loadingMore)
+    if (!pagination || pagination.page >= pagination.totalPages || loadingMore) {
       return;
+    }
 
     try {
       setLoadingMore(true);
       const nextPage = pagination.page + 1;
 
       const res = await fetch(
-        `/api/user/notifications?page=${nextPage}&limit=${pagination.limit}`,
+        `/api/user/notifications?page=${nextPage}&limit=${pagination.limit}`
       );
       const json = await res.json();
 
@@ -91,31 +121,9 @@ export default function NotificationsPage() {
         setPagination(json.data.pagination);
       }
     } catch (error) {
-      console.error("Failed to load more notifications:", error);
+      console.error("[LOAD_MORE_NOTIFICATIONS_ERROR]:", error);
     } finally {
       setLoadingMore(false);
-    }
-  };
-
-  const handleMarkSingleAsRead = async (
-    id: string,
-    currentReadStatus: boolean,
-  ) => {
-    if (currentReadStatus) return;
-
-    try {
-      setNotifications((prev) =>
-        prev.map((item) => (item.id === id ? { ...item, read: true } : item)),
-      );
-      setUnreadCount((prev) => Math.max(0, prev - 1));
-
-      await fetch("/api/user/notifications/read", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ notificationId: id }),
-      });
-    } catch (error) {
-      console.error("Failed to mark single notification as read:", error);
     }
   };
 
@@ -125,14 +133,18 @@ export default function NotificationsPage() {
     try {
       setMarkingAll(true);
 
-      setNotifications((prev) => prev.map((item) => ({ ...item, read: true })));
+      setNotifications((prev) =>
+        prev.map((item) => ({ ...item, read: true }))
+      );
       setUnreadCount(0);
 
       await fetch("/api/user/notifications/read", {
         method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ markAll: true }),
       });
     } catch (error) {
-      console.error("Failed to mark all as read:", error);
+      console.error("[MARK_ALL_READ_ERROR]:", error);
     } finally {
       setMarkingAll(false);
     }
@@ -152,7 +164,7 @@ export default function NotificationsPage() {
   return (
     <DashboardShell user={user}>
       <div className="md:ml-64 pt-26 px-8 pb-12 min-h-screen bg-[#0F172A] text-white relative">
-        {/* Header with Mark All as Read Button */}
+
         <div className="flex items-center justify-between border-b border-zinc-800 pb-4 mb-6">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Notifications</h1>
@@ -180,14 +192,12 @@ export default function NotificationsPage() {
           )}
         </div>
 
-        {/* Loading State */}
         {loading ? (
           <div className="py-20 flex flex-col items-center justify-center text-zinc-400">
             <Loader2 className="w-8 h-8 animate-spin text-emerald-500 mb-2" />
             <p className="text-sm">Loading notifications...</p>
           </div>
         ) : notifications.length === 0 ? (
-          /* Empty State */
           <div className="flex flex-col items-center justify-center py-16 text-center border border-dashed border-zinc-800 rounded-xl">
             <Bell className="w-10 h-10 text-zinc-600 mb-3" />
             <p className="text-sm font-medium text-zinc-400">
@@ -198,7 +208,6 @@ export default function NotificationsPage() {
             </p>
           </div>
         ) : (
-          /* Notifications List */
           <div className="space-y-3">
             {notifications.map((notif) => {
               const senderName =
@@ -208,7 +217,7 @@ export default function NotificationsPage() {
               return (
                 <div
                   key={notif.id}
-                  onClick={() => handleMarkSingleAsRead(notif.id, notif.read)}
+                  onClick={() => markAsRead(notif.id, notif.read)}
                   className={`p-4 rounded-xl border transition-all flex items-center justify-between gap-4 cursor-pointer ${
                     !notif.read
                       ? "bg-zinc-900/90 border-emerald-500/30 shadow-sm"
@@ -216,10 +225,9 @@ export default function NotificationsPage() {
                   }`}
                 >
                   <div className="flex items-center gap-3.5 min-w-0">
-                    {/* Sender Profile Image (Clickable Link to Profile) */}
                     <Link
                       href={profileUrl}
-                      onClick={(e) => e.stopPropagation()}
+                      onClick={() => markAsRead(notif.id, notif.read)}
                       className="relative shrink-0 group"
                     >
                       {notif.sender.image ? (
@@ -236,7 +244,6 @@ export default function NotificationsPage() {
                         </div>
                       )}
 
-                      {/* Notification Icon Badge */}
                       <div className="absolute -bottom-1 -right-1 p-1 bg-zinc-950 rounded-full">
                         {notif.type === "LIKE" && (
                           <Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-500/30" />
@@ -250,13 +257,11 @@ export default function NotificationsPage() {
                       </div>
                     </Link>
 
-                    {/* Notification Text Content */}
                     <div className="text-sm min-w-0">
                       <p className="text-zinc-200 leading-snug">
-                        {/* Sender Name Link */}
                         <Link
                           href={profileUrl}
-                          onClick={(e) => e.stopPropagation()}
+                          onClick={() => markAsRead(notif.id, notif.read)}
                           className="font-semibold text-white hover:text-emerald-400 hover:underline transition-colors"
                         >
                           {senderName}
@@ -272,7 +277,6 @@ export default function NotificationsPage() {
                     </div>
                   </div>
 
-                  {/* Actions / View Post Link */}
                   <div className="flex items-center gap-2 shrink-0">
                     {!notif.read && (
                       <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
@@ -281,7 +285,7 @@ export default function NotificationsPage() {
                     {notif.postId && (
                       <Link
                         href={`/blog/${notif.postId}`}
-                        onClick={(e) => e.stopPropagation()}
+                        onClick={() => markAsRead(notif.id, notif.read)}
                         className="px-3 py-1.5 text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded-lg transition-colors"
                       >
                         View Post
@@ -292,7 +296,6 @@ export default function NotificationsPage() {
               );
             })}
 
-            {/* Load More Pagination */}
             {pagination && pagination.page < pagination.totalPages && (
               <div className="pt-6 text-center">
                 <button

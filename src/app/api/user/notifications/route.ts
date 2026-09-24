@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
     if (!session?.user?.id) {
       return Response.json(
         { success: false, error: "Unauthorized access." },
-        { status: 401 },
+        { status: 401 }
       );
     }
 
@@ -30,9 +30,9 @@ export async function GET(req: NextRequest) {
         select: {
           id: true,
           type: true,
-          message: true,
           read: true,
-          link: true,
+          postId: true,
+          commentId: true,
           createdAt: true,
           sender: {
             select: {
@@ -78,7 +78,7 @@ export async function GET(req: NextRequest) {
           },
         },
       },
-      { status: 200 },
+      { status: 200 }
     );
   } catch (error) {
     console.error("[GET_NOTIFICATIONS_ERROR]:", error);
@@ -87,7 +87,7 @@ export async function GET(req: NextRequest) {
         success: false,
         error: "Internal Server Error: Failed to fetch notifications.",
       },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }

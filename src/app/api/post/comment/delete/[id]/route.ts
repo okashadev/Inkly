@@ -1,12 +1,16 @@
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
+import { NextRequest, NextResponse } from "next/server";
 
-export async function DELETE({ params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
   try {
     const session = await auth();
 
     if (!session?.user?.id) {
-      return Response.json(
+      return NextResponse.json(
         { success: false, error: "Unauthorized access." },
         { status: 401 },
       );
@@ -18,7 +22,7 @@ export async function DELETE({ params }: { params: Promise<{ id: string }> }) {
     const commentId = resolvedParams.id?.trim();
 
     if (!commentId) {
-      return Response.json(
+      return NextResponse.json(
         { success: false, error: "Comment ID is required." },
         { status: 400 },
       );
@@ -39,7 +43,7 @@ export async function DELETE({ params }: { params: Promise<{ id: string }> }) {
     });
 
     if (!comment) {
-      return Response.json(
+      return NextResponse.json(
         { success: false, error: "Comment not found." },
         { status: 404 },
       );
@@ -49,7 +53,7 @@ export async function DELETE({ params }: { params: Promise<{ id: string }> }) {
     const isPostOwner = comment.post?.authorId === userId;
 
     if (!isCommentAuthor && !isPostOwner) {
-      return Response.json(
+      return NextResponse.json(
         {
           success: false,
           error: "Forbidden: You are not authorized to delete this comment.",
@@ -66,7 +70,7 @@ export async function DELETE({ params }: { params: Promise<{ id: string }> }) {
       where: { postId: comment.postId },
     });
 
-    return Response.json(
+    return NextResponse.json(
       {
         success: true,
         message: "Comment deleted successfully.",
@@ -76,7 +80,7 @@ export async function DELETE({ params }: { params: Promise<{ id: string }> }) {
     );
   } catch (error) {
     console.error("[DELETE_COMMENT_ERROR]:", error);
-    return Response.json(
+    return NextResponse.json(
       {
         success: false,
         error: "Internal Server Error: Failed to delete comment.",
