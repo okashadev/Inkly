@@ -5,10 +5,10 @@ import CommentSection from "@/components/blog/view/CommentSection";
 import InteractionBar from "@/components/blog/view/InteractionBar";
 import RelatedBlogs from "@/components/blog/view/RelatedBlogs";
 import AuthorBio from "@/components/blog/view/AuthorBio";
-import { AnimatePresence, motion } from "framer-motion";
+import { motion } from "framer-motion";
 import { UserCheck, UserPlus } from "lucide-react";
 import { formatTimeAgo } from "@/utils/formatTime";
-import { use, useEffect, useState } from "react";
+import { use, useEffect, useState, useCallback } from "react";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import { useSession } from "next-auth/react";
@@ -40,65 +40,73 @@ export default function BlogPage({
   const [isLiked, setIsLiked] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
 
-  const triggerAuthRequired = (action: AuthActionType) => {
+  const triggerAuthRequired = useCallback((action: AuthActionType) => {
     setAuthAction(action);
     setIsAuthModalOpen(true);
-  };
+  }, []);
 
   useEffect(() => {
+    if (!id) return;
+
+    const controller = new AbortController();
+
     async function fetchPost() {
       try {
         setLoading(true);
-        const res = await fetch(`/api/post/get?id=${id}`);
+        setError(null);
+
+        const res = await fetch(`/api/post/get?id=${id}`, {
+          signal: controller.signal,
+        });
         const data = await res.json();
-        console.log(data);
 
         if (data.success && data.post) {
           setPost(data.post);
           setLikeCount(data.post._count?.likes ?? 0);
           setCommentCount(data.post._count?.comments ?? 0);
-          setCategoryId(data.post?.category?.id);
+          setCategoryId(data.post?.category?.id || "");
 
-          if (typeof data.isLiked === "boolean") {
-            setIsLiked(data.isLiked);
-          }
-
-          if (typeof data.isSaved === "boolean") {
-            setIsSaved(data.isSaved);
-          }
-
-          if (typeof data.isFollowing === "boolean") {
-            setIsFollowing(data.isFollowing);
+          if (data.userState) {
+            setIsLiked(Boolean(data.userState.isLiked));
+            setIsSaved(Boolean(data.userState.isSaved));
+            setIsFollowing(Boolean(data.userState.isFollowing));
           }
         } else {
           setError(data.error || "Blog post not found.");
         }
-      } catch (err: any) {
-        console.error("Fetch Blog Error:", err);
-        setError("Failed to load blog post.");
+      } catch (err: unknown) {
+        if ((err as Error).name !== "AbortError") {
+          console.error("Fetch Blog Error:", err);
+          setError("Failed to load blog post.");
+        }
       } finally {
         setLoading(false);
       }
     }
 
-    if (id) {
-      fetchPost();
-    }
+    fetchPost();
+
+    return () => {
+      controller.abort();
+    };
   }, [id]);
 
   useEffect(() => {
     if (!id) return;
 
+    const controller = new AbortController();
+
     async function incrementView() {
       const viewedKey = `viewed_post_${id}`;
-      const hasVieweded = sessionStorage.getItem(viewedKey);
+      const hasViewed = sessionStorage.getItem(viewedKey);
 
-      if (!hasVieweded) {
+      if (!hasViewed) {
         try {
           const res = await fetch("/api/post/views", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ postId: id }),
+            signal: controller.signal,
           });
 
           const data = await res.json();
@@ -107,14 +115,37 @@ export default function BlogPage({
             sessionStorage.setItem(viewedKey, "true");
             setPost((prev) => (prev ? { ...prev, views: data.views } : prev));
           }
-        } catch (err) {
-          console.error("View count update failed:", err);
+        } catch (err: unknown) {
+          if ((err as Error).name !== "AbortError") {
+            console.error("View count update failed:", err);
+          }
         }
       }
     }
 
     incrementView();
+
+    return () => {
+      controller.abort();
+    };
   }, [id]);
+
+  useEffect(() => {
+    if (
+      !loading &&
+      typeof window !== "undefined" &&
+      window.location.hash === "#comments-section"
+    ) {
+      const timer = setTimeout(() => {
+        const element = document.getElementById("comments-section");
+        if (element) {
+          element.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      }, 300);
+
+      return () => clearTimeout(timer);
+    }
+  }, [loading]);
 
   const handleFollowClick = async () => {
     if (status === "unauthenticated") {
@@ -153,36 +184,22 @@ export default function BlogPage({
             };
           });
         }
-      } catch (err: any) {
-        console.error("Follow action failed", err);
+      } catch (err: unknown) {
+        console.error("Follow action failed:", err);
       } finally {
         setFollowLoading(false);
       }
     }
   };
 
-  useEffect(() => {
-    if (
-      typeof window !== "undefined" &&
-      window.location.hash === "#comments-section"
-    ) {
-      const timer = setTimeout(() => {
-        const element = document.getElementById("comments-section");
-        if (element) {
-          element.scrollIntoView({ behavior: "smooth", block: "start" });
-        }
-      }, 300);
-
-      return () => clearTimeout(timer);
-    }
-  }, [loading]);
-
-  const handleCommentAdded = () => {
+  const handleCommentAdded = useCallback(() => {
     setCommentCount((prev) => prev + 1);
-  };
+  }, []);
 
   const isOwnPost =
-    session?.user?.id && post?.author?.id && session.user.id === post.author.id;
+    Boolean(session?.user?.id) &&
+    Boolean(post?.author?.id) &&
+    session?.user?.id === post?.author?.id;
 
   if (loading) {
     return (
@@ -205,7 +222,6 @@ export default function BlogPage({
     );
   }
 
-  // Error State
   if (error || !post) {
     return (
       <div className="bg-[#0b1326] text-[#dae2fd] min-h-screen flex flex-col justify-between">
@@ -287,7 +303,9 @@ export default function BlogPage({
                   <p className="text-xs text-slate-400">
                     {formatTimeAgo(post.createdAt)} • {post.readingTime || 5}{" "}
                     min read
-                    {post.views != null ? ` • ${post.views} views` : ` • 0 views`}
+                    {post.views != null
+                      ? ` • ${post.views} views`
+                      : ` • 0 views`}
                   </p>
                 </div>
                 <div>
@@ -370,7 +388,7 @@ export default function BlogPage({
 
             <AuthorBio
               author={post.author}
-              isOwnPost={!!isOwnPost}
+              isOwnPost={Boolean(isOwnPost)}
               isFollowing={isFollowing}
               followLoading={followLoading}
               onFollowToggle={handleFollowClick}

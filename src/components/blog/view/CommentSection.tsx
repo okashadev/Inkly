@@ -1,157 +1,239 @@
 "use client";
-import { AuthActionType } from "@/components/modals/AuthModal";
-import { Comment } from "@/types/comment";
-import { formatTimeAgo } from "@/utils/formatTime";
+
+import { useState, useEffect } from "react";
+import { motion } from "framer-motion";
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import Link from "next/link";
+import { formatTimeAgo } from "@/utils/formatTime";
+
+interface CommentAuthor {
+  id: string;
+  name: string | null;
+  username: string | null;
+  image: string | null;
+}
+
+interface Comment {
+  id: string;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+  author: CommentAuthor;
+}
 
 interface CommentSectionProps {
   postId: string;
-  status: string;
-  onAuthRequired?: (actionType: AuthActionType) => void;
+  status: "authenticated" | "unauthenticated" | "loading";
+  onAuthRequired: (action: "comment") => void;
   onCommentAdded?: () => void;
 }
 
-const CommentSection = ({
+export default function CommentSection({
   postId,
   status,
   onAuthRequired,
   onCommentAdded,
-}: CommentSectionProps) => {
-  const [isCommentSubmitLoading, setIsCommentSubmitLoading] = useState(false);
+}: CommentSectionProps) {
   const [comments, setComments] = useState<Comment[]>([]);
-  const [commentInput, setCommentInput] = useState("");
+  const [newComment, setNewComment] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!postId) return;
+
+    const controller = new AbortController();
+
     async function fetchComments() {
-      if (!postId) return;
       try {
-        const res = await fetch(`/api/post/comment?postId=${postId}`);
-        const data = await res.json();
-        if (data.success) {
-          setComments(data.comments);
+        setIsLoading(true);
+        setError(null);
+
+        const res = await fetch(`/api/post/comment?postId=${postId}`, {
+          signal: controller.signal,
+        });
+        const json = await res.json();
+
+        if (json.success && json.data && Array.isArray(json.data.comments)) {
+          setComments(json.data.comments);
+        } else if (Array.isArray(json.comments)) {
+          setComments(json.comments);
+        } else {
+          setComments([]);
         }
-      } catch (err) {
-        console.error("Failed to load comments:", err);
+      } catch (err: unknown) {
+        if ((err as Error).name !== "AbortError") {
+          console.error("Error fetching comments:", err);
+          setError("Failed to load comments.");
+          setComments([]);
+        }
+      } finally {
+        setIsLoading(false);
       }
     }
 
     fetchComments();
+
+    return () => {
+      controller.abort();
+    };
   }, [postId]);
 
-  const handleCommentSubmit = async (e: React.SyntheticEvent) => {
+  const handleSubmit = async (e: React.SyntheticEvent) => {
     e.preventDefault();
 
     if (status === "unauthenticated") {
-      onAuthRequired?.("comment");
-      setCommentInput("")
+      onAuthRequired("comment");
       return;
     }
 
-    if (!commentInput.trim() || !postId) return;
+    if (!newComment.trim()) return;
 
-    setIsCommentSubmitLoading(true);
     try {
+      setIsSubmitting(true);
       const res = await fetch("/api/post/comment", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          postId: postId,
-          content: commentInput,
-        }),
+        body: JSON.stringify({ postId, content: newComment.trim() }),
       });
 
-      const data = await res.json();
+      const json = await res.json();
 
-      if (data.success) {
-        setComments((prev) => [data.comment, ...prev]);
-        setCommentInput("");
-        onCommentAdded?.();
+      if (json.success && json.comment) {
+        setComments((prev) => [
+          json.comment,
+          ...(Array.isArray(prev) ? prev : []),
+        ]);
+        setNewComment("");
+        if (onCommentAdded) {
+          onCommentAdded();
+        }
       }
     } catch (err) {
-      console.error("Failed to post comment:", err);
+      console.error("Error submitting comment:", err);
     } finally {
-      setIsCommentSubmitLoading(false);
+      setIsSubmitting(false);
     }
   };
+
+  const safeCommentsList = Array.isArray(comments) ? comments : [];
+
   return (
-    <>
-      <section id="comments-section" className="mt-16 space-y-8">
-        <h3 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
-          Comments ({comments.length})
-        </h3>
+    <section id="comments-section" className="mt-16 space-y-8">
+      <h3 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
+        Comments ({safeCommentsList.length})
+      </h3>
 
-        <form
-          onSubmit={handleCommentSubmit}
-          className="p-5 bg-[#131b2e]/80 border border-white/10 rounded-2xl space-y-4 shadow-xl"
-        >
-          <textarea
-            value={commentInput}
-            onChange={(e) => setCommentInput(e.target.value)}
-            placeholder={
-              status === "authenticated"
-                ? "What are your thoughts?"
-                : "Log in to join the conversation..."
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <textarea
+          value={newComment}
+          onChange={(e) => setNewComment(e.target.value)}
+          placeholder={
+            status === "unauthenticated"
+              ? "Sign in to leave a comment..."
+              : "What are your thoughts?"
+          }
+          onClick={() => {
+            if (status === "unauthenticated") {
+              onAuthRequired("comment");
             }
-            rows={3}
-            className="w-full bg-[#0b1326] text-white border border-white/10 rounded-xl p-4 text-sm focus:outline-none focus:border-blue-500 transition resize-none placeholder:text-slate-500"
-          />
-          <div className="flex justify-end">
-            <button
-              type="submit"
-              disabled={isCommentSubmitLoading || !commentInput.trim()}
-              className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:hover:bg-blue-600 text-white font-semibold text-xs rounded-xl transition duration-200"
-            >
-              Post Comment
-            </button>
-          </div>
-        </form>
+          }}
+          rows={3}
+          className="w-full bg-[#131b2e] text-white placeholder-slate-400 p-4 rounded-xl border border-white/10 focus:outline-none focus:border-blue-500 transition resize-none text-sm"
+        />
+        <div className="flex justify-end">
+          <button
+            type="submit"
+            disabled={isSubmitting || !newComment.trim()}
+            className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold text-sm rounded-xl transition"
+          >
+            {isSubmitting ? "Posting..." : "Post Comment"}
+          </button>
+        </div>
+      </form>
 
-        <div className="space-y-4">
-          {comments.length === 0 ? (
-            <p className="text-slate-500 text-sm text-center py-6">
-              No comments yet. Be the first to share your thoughts!
-            </p>
-          ) : (
-            comments.map((comment) => (
-              <div
+      {isLoading ? (
+        <div className="space-y-4 animate-pulse">
+          <div className="h-20 bg-slate-800/40 rounded-2xl border border-white/5" />
+          <div className="h-20 bg-slate-800/40 rounded-2xl border border-white/5" />
+        </div>
+      ) : error ? (
+        <p className="text-red-400 text-sm font-medium p-4 bg-red-500/10 border border-red-500/20 rounded-xl">
+          {error}
+        </p>
+      ) : safeCommentsList.length === 0 ? (
+        <p className="text-slate-400 text-sm italic py-4">
+          No comments yet. Be the first to share your thoughts!
+        </p>
+      ) : (
+        <motion.div
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#131b2e]/60 backdrop-blur-md shadow-xl"
+        >
+          {/* Sticky Discussion Header */}
+          <div className="sticky top-0 z-10 flex items-center justify-between px-5 py-3.5 border-b border-white/10 bg-[#131b2e]/90 backdrop-blur-xl">
+            <div>
+              <h4 className="text-sm font-semibold text-white tracking-wide">
+                Recent Discussions
+              </h4>
+              <p className="text-[11px] text-slate-400">
+                {safeCommentsList.length}{" "}
+                {safeCommentsList.length === 1 ? "comment" : "comments"}
+              </p>
+            </div>
+          </div>
+
+          {/* Scrollable Container */}
+          <div className="max-h-125 overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-thumb-slate-700/50 scrollbar-track-transparent">
+            {safeCommentsList.map((comment) => (
+              <motion.div
                 key={comment.id}
-                className="p-5 bg-[#131b2e]/40 border border-white/5 rounded-2xl space-y-3"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.2 }}
+                className="p-4 rounded-xl bg-white/2 border border-white/5 hover:border-blue-500/30 hover:bg-white/4 transition-all duration-200 space-y-2.5"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-full overflow-hidden bg-slate-800 border border-white/10 relative shrink-0">
+                  <Link
+                    href={`/authors/profile/${comment.author?.id}`}
+                    className="w-9 h-9 rounded-full bg-slate-800 border border-white/10 overflow-hidden relative shrink-0 hover:ring-2 hover:ring-blue-500/50 transition"
+                  >
                     {comment.author?.image ? (
                       <Image
-                        src={comment.author?.image}
-                        alt={comment.author?.name || "User Avatar"}
+                        src={comment.author.image}
+                        alt={comment.author.name || "User"}
                         fill
                         className="object-cover"
                       />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center text-blue-400 font-bold text-xs">
-                        {comment?.author?.name?.[0]?.toUpperCase() || "U"}
+                      <div className="w-full h-full flex items-center justify-center text-blue-400 text-xs font-bold bg-blue-500/10">
+                        {comment.author?.name?.[0]?.toUpperCase() || "U"}
                       </div>
                     )}
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-white">
-                      {comment.author?.name}
-                    </p>
-                    <p className="text-[10px] text-slate-500">
+                  </Link>
+                  <div className="flex flex-col">
+                    <Link
+                      href={`/authors/profile/${comment.author?.id}`}
+                      className="text-sm font-medium text-slate-100 hover:text-blue-400 transition-colors leading-tight"
+                    >
+                      {comment.author?.name || "Anonymous"}
+                    </Link>
+                    <span className="text-[11px] text-slate-400 mt-0.5">
                       {formatTimeAgo(comment.createdAt)}
-                    </p>
+                    </span>
                   </div>
                 </div>
-                <p className="text-sm text-slate-300/90 leading-relaxed pl-12">
+                <p className="text-sm text-slate-300 leading-relaxed pl-12">
                   {comment.content}
                 </p>
-              </div>
-            ))
-          )}
-        </div>
-      </section>
-    </>
+              </motion.div>
+            ))}
+          </div>
+        </motion.div>
+      )}
+    </section>
   );
-};
-
-export default CommentSection;
+}
